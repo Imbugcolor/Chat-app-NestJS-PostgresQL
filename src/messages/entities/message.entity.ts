@@ -8,6 +8,7 @@ import {
   OneToMany,
   CreateDateColumn,
   ManyToOne,
+  UpdateDateColumn,
 } from 'typeorm';
 import { MESSAGETYPE } from '../enums/messageType.enum';
 import { Attachment } from './attachment.entity';
@@ -46,9 +47,21 @@ export class Message {
   @Expose()
   attachments: Attachment[];
 
+  @OneToMany(() => User, (user) => user.readMesages)
+  @Expose()
+  readBy: User[];
+
+  @Column({ default: false })
+  @Expose()
+  isUpdated: boolean;
+
   @CreateDateColumn()
   @Expose()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  @Expose()
+  updatedAt: Date;
 
   @OneToMany(() => MessageDeleted, (msgDeleted) => msgDeleted.message)
   @Expose()

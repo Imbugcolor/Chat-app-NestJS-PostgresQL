@@ -16,6 +16,7 @@ import { MessagesModule } from './messages/messages.module';
 import { Message } from './messages/entities/message.entity';
 import { Attachment } from './messages/entities/attachment.entity';
 import { MessageDeleted } from './messages/entities/messageDeleted.entity';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { MessageDeleted } from './messages/entities/messageDeleted.entity';
     }),
     ConversationsModule,
     MessagesModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

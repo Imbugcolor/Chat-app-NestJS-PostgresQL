@@ -74,6 +74,11 @@ export class User {
   })
   participants: Participant[];
 
+  @OneToMany(() => Message, (msg) => msg.readBy, {
+    cascade: true,
+  })
+  readMesages: Message[];
+
   @Expose()
   accessToken?: string;
 }

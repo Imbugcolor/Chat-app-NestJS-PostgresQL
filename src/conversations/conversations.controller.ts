@@ -2,6 +2,7 @@ import {
   Body,
   ClassSerializerInterceptor,
   Controller,
+  Get,
   Post,
   SerializeOptions,
   UseGuards,
@@ -25,5 +26,12 @@ export class ConversationsController {
     @Body('userIds') userIds: number[],
   ) {
     return this.conversationsService.createConversation(user, userIds);
+  }
+
+  @Get()
+  @UseGuards(AccessTokenGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
+  getConversations(@GetUser() user: User) {
+    return this.conversationsService.getConversations(user);
   }
 }

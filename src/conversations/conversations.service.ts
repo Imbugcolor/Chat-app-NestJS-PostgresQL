@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Conversation } from './entities/conversation.entity';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Participant } from './entities/participant.entity';
 import { User } from 'src/auth/users/entities/user.entity';
 
@@ -37,6 +37,10 @@ export class ConversationsService {
       }),
     );
 
+    const userCv = new Participant({ user });
+    await this.participantRepository.save(userCv);
+    participants.push(userCv);
+
     const newConversation = new Conversation({
       createdBy: user,
       participants,
@@ -45,5 +49,36 @@ export class ConversationsService {
     await this.conversationRepository.save(newConversation);
 
     return newConversation;
+  }
+
+  async getConversations(user: User) {
+    const conversations = await this.conversationRepository.find({
+      relations: {
+        participants: {
+          user: true,
+        },
+      },
+      where: {
+        participants: {
+          user: {
+            id: user.id,
+          },
+        },
+      },
+    });
+
+    const ids = conversations.map((cv) => cv.id);
+
+    // retrive conversations with all participants in each conversation
+    const getConversations = await this.conversationRepository.find({
+      relations: {
+        participants: {
+          user: true,
+        },
+      },
+      where: { id: In(ids) },
+    });
+
+    return getConversations;
   }
 }
