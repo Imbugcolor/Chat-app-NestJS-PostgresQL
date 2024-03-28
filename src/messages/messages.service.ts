@@ -4,6 +4,7 @@ import { Conversation } from 'src/conversations/entities/conversation.entity';
 import { Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
 import { User } from 'src/auth/users/entities/user.entity';
+import { EventsGateway } from 'src/events/events.gateway';
 
 @Injectable()
 export class MessagesService {
@@ -12,6 +13,7 @@ export class MessagesService {
     private conversationRepository: Repository<Conversation>,
     @InjectRepository(Message) private messageRepository: Repository<Message>,
     @InjectRepository(User) private userRepository: Repository<User>,
+    private eventsGateway: EventsGateway,
   ) {}
 
   async getMessageByConversationId(user: User, conversationId: number) {
@@ -27,8 +29,28 @@ export class MessagesService {
     return conversation;
   }
 
-  async createMessage(user: User, conversationId: number, context: string) {
+  // async getParticipantsByConversation(conversationId: number) {
+  //   const participants = await this.conversationRepository.findOne({
+  //     relations: {
+
+  //     },
+  //     where: {
+  //       id: conversationId,
+  //     },
+  //   })
+  // }
+
+  async createMessage(
+    user: User,
+    conversationId: number,
+    context: string,
+  ): Promise<Message> {
     const conversation = await this.conversationRepository.findOne({
+      relations: {
+        participants: {
+          user: true,
+        },
+      },
       where: { id: conversationId },
     });
 
@@ -39,6 +61,15 @@ export class MessagesService {
     });
 
     await this.messageRepository.save(message);
+
+    const userIds: number[] = [];
+    conversation.participants.map((participant) => {
+      if (participant.user.id !== user.id) {
+        return userIds.push(participant.user.id);
+      }
+    });
+
+    this.eventsGateway.sendMessage(message, userIds);
 
     return message;
   }

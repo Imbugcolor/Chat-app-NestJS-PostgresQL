@@ -25,8 +25,6 @@ export class RedisService {
         `userId:${userId.toString()}`,
       );
 
-      console.log(cachedSocketIds);
-
       if (cachedSocketIds && cachedSocketIds.length > 0) {
         return cachedSocketIds;
       }

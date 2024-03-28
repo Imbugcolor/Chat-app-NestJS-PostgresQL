@@ -7,5 +7,6 @@ import { RedisModule } from 'src/redis/redis.module';
 @Module({
   imports: [ConfigModule.forRoot(), JwtModule.register({}), RedisModule],
   providers: [EventsGateway],
+  exports: [EventsGateway],
 })
 export class EventsModule {}

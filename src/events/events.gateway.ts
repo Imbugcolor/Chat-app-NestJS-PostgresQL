@@ -10,8 +10,17 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RedisService } from 'src/redis/redis.service';
+import { ServerToClientEvents } from './interfaces/events.interface';
+import { Message } from 'src/messages/entities/message.entity';
+import { UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
+import { WebsocketExceptionsFilter } from './exception/wsExceptionFilter';
+import { User } from 'src/auth/users/entities/user.entity';
+import { Participant } from 'src/conversations/entities/participant.entity';
+import { Conversation } from 'src/conversations/entities/conversation.entity';
 
 @WebSocketGateway()
+@UseFilters(WebsocketExceptionsFilter)
+@UsePipes(new ValidationPipe({ transform: true }))
 export class EventsGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
@@ -22,7 +31,7 @@ export class EventsGateway
   ) {}
 
   @WebSocketServer()
-  server: Server;
+  server: Server<any, ServerToClientEvents>;
 
   afterInit(server: Server) {
     // console.log(server);
@@ -30,7 +39,6 @@ export class EventsGateway
 
   async handleConnection(client: Socket) {
     const { authorization } = client.handshake.headers;
-    console.log((authorization as string).split(' ')[1]);
 
     if (authorization && (authorization as string)?.split(' ')[1]) {
       try {
@@ -44,28 +52,62 @@ export class EventsGateway
         // store client into Redis
         await this.redisService.addClient(client.data.user.id, client.id);
       } catch (error) {
-        console.log(error);
-        return client.disconnect();
+        client.disconnect();
       }
     } else {
-      return client.disconnect();
+      client.disconnect();
     }
-    console.log(
-      'Client connected: ',
-      client.id,
-      'User connected: ',
-      client.data.user.id,
-    );
-    console.log(await this.redisService.getClient(client.data.user.id));
   }
 
   async handleDisconnect(client: Socket) {
     await this.redisService.removeClient(client.data?.user?.id, client.id);
-    console.log('Disconnected: ', client.id, client.data.user.id);
   }
 
   @SubscribeMessage('message')
   handleMessage(client: Socket, payload: any = 'Hello'): any {
     return { clientId: client.id, payload };
+  }
+
+  async sendMessage(message: Message, usersId: number[]) {
+    if (usersId.length > 0) {
+      const serializeSenderData = this.serializeUserData(message.senderId);
+      const serializeUserParticipantsData: Participant[] =
+        message.conversation.participants.map((participant) => {
+          return {
+            ...participant,
+            user: this.serializeUserData(participant.user),
+          };
+        });
+
+      const conversation: Conversation = {
+        ...message.conversation,
+        participants: serializeUserParticipantsData,
+      };
+
+      const serialData = {
+        ...message,
+        senderId: serializeSenderData,
+        conversation,
+      };
+
+      await Promise.all(
+        usersId.map(async (id) => {
+          const clients = await this.redisService.getClient(id);
+          clients.forEach((client) => {
+            this.server.to(`${client}`).emit('newMessage', serialData);
+          });
+        }),
+      );
+    }
+    return;
+  }
+
+  private serializeUserData(data: User): User {
+    delete data.password;
+    delete data.rf_token;
+    delete data.conversations;
+    delete data.participants;
+    delete data.messages;
+    return data;
   }
 }
