@@ -12,7 +12,6 @@ import {
 } from 'typeorm';
 import { MESSAGETYPE } from '../enums/messageType.enum';
 import { Attachment } from './attachment.entity';
-import { MessageDeleted } from './messageDeleted.entity';
 import { Expose } from 'class-transformer';
 
 @Entity()
@@ -62,8 +61,4 @@ export class Message {
   @UpdateDateColumn()
   @Expose()
   updatedAt: Date;
-
-  @OneToMany(() => MessageDeleted, (msgDeleted) => msgDeleted.message)
-  @Expose()
-  deletedBy: MessageDeleted[];
 }

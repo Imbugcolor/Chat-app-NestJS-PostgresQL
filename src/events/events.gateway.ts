@@ -17,6 +17,11 @@ import { WebsocketExceptionsFilter } from './exception/wsExceptionFilter';
 import { User } from 'src/auth/users/entities/user.entity';
 import { Participant } from 'src/conversations/entities/participant.entity';
 import { Conversation } from 'src/conversations/entities/conversation.entity';
+import {
+  CREATE_MESSAGE,
+  DELETE_MESSAGE,
+  UPDATE_MESSAGE,
+} from './constants/messageEvent.contanst';
 
 @WebSocketGateway()
 @UseFilters(WebsocketExceptionsFilter)
@@ -68,7 +73,11 @@ export class EventsGateway
     return { clientId: client.id, payload };
   }
 
-  async sendMessage(message: Message, usersId: number[]) {
+  async handleMessageEvent(
+    message: Message,
+    usersId: number[],
+    eventName: any,
+  ) {
     if (usersId.length > 0) {
       const serializeSenderData = this.serializeUserData(message.senderId);
       const serializeUserParticipantsData: Participant[] =
@@ -94,12 +103,24 @@ export class EventsGateway
         usersId.map(async (id) => {
           const clients = await this.redisService.getClient(id);
           clients.forEach((client) => {
-            this.server.to(`${client}`).emit('newMessage', serialData);
+            this.server.to(`${client}`).emit(eventName, serialData);
           });
         }),
       );
     }
     return;
+  }
+
+  async sendMessage(message: Message, usersId: number[]) {
+    await this.handleMessageEvent(message, usersId, CREATE_MESSAGE);
+  }
+
+  async updateMessage(message: Message, usersId: number[]) {
+    await this.handleMessageEvent(message, usersId, UPDATE_MESSAGE);
+  }
+
+  async deleteMessage(message: Message, usersId: number[]) {
+    await this.handleMessageEvent(message, usersId, DELETE_MESSAGE);
   }
 
   private serializeUserData(data: User): User {

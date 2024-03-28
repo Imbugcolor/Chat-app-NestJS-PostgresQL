@@ -2,9 +2,11 @@ import {
   Body,
   ClassSerializerInterceptor,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   SerializeOptions,
   UseGuards,
@@ -39,5 +41,25 @@ export class MessagesController {
     @Body('context') context: string,
   ) {
     return this.messagesService.createMessage(user, id, context);
+  }
+
+  @Patch('/:messageId')
+  @UseGuards(AccessTokenGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
+  async updateMessage(
+    @GetUser() user: User,
+    @Param('messageId', ParseIntPipe) id: number,
+    @Body('context') context: string,
+  ) {
+    return this.messagesService.updateMessage(user, id, context);
+  }
+
+  @Delete('/:messageId')
+  @UseGuards(AccessTokenGuard)
+  async deleteMessage(
+    @GetUser() user: User,
+    @Param('messageId', ParseIntPipe) id: number,
+  ) {
+    return this.messagesService.deleteMessage(user, id);
   }
 }
