@@ -2,10 +2,8 @@ import { User } from 'src/auth/users/entities/user.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
-  JoinColumn,
   CreateDateColumn,
   ManyToOne,
-  OneToOne,
 } from 'typeorm';
 import { Expose } from 'class-transformer';
 import { Message } from './message.entity';
@@ -21,11 +19,10 @@ export class UserReadMessage {
   id: number;
 
   @ManyToOne(() => Message, (msg) => msg.usersRead)
-  @JoinColumn()
   @Expose()
   message: Message;
 
-  @OneToOne(() => User)
+  @ManyToOne(() => User, (user) => user.readMessages)
   @Expose()
   readBy: User;
 

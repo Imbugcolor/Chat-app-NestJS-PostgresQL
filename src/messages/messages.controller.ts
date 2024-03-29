@@ -62,4 +62,13 @@ export class MessagesController {
   ) {
     return this.messagesService.deleteMessage(user, id);
   }
+
+  @Patch('read/:messageId')
+  @UseGuards(AccessTokenGuard)
+  async readMessage(
+    @GetUser() user: User,
+    @Param('messageId', ParseIntPipe) id: number,
+  ) {
+    return this.messagesService.readMessage(user, id);
+  }
 }

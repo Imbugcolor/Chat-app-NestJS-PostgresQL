@@ -6,6 +6,7 @@ import { Message } from './entities/message.entity';
 import { User } from 'src/auth/users/entities/user.entity';
 import { EventsGateway } from 'src/events/events.gateway';
 import { HttpResponse } from 'src/httpReponses/http.response';
+import { UserReadMessage } from './entities/userReadMessage.entity';
 
 @Injectable()
 export class MessagesService {
@@ -14,6 +15,8 @@ export class MessagesService {
     private conversationRepository: Repository<Conversation>,
     @InjectRepository(Message) private messageRepository: Repository<Message>,
     @InjectRepository(User) private userRepository: Repository<User>,
+    @InjectRepository(UserReadMessage)
+    private userReadMessageRepository: Repository<UserReadMessage>,
     private eventsGateway: EventsGateway,
   ) {}
 
@@ -148,6 +151,45 @@ export class MessagesService {
     });
 
     this.eventsGateway.deleteMessage(message, userIds);
+
+    return new HttpResponse().success();
+  }
+
+  async readMessage(user: User, messageId: number) {
+    const message = await this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.senderId', 'senderId')
+      .leftJoinAndSelect('message.usersRead', 'usersRead')
+      .leftJoinAndSelect('usersRead.readBy', 'readBy')
+      .leftJoinAndSelect('message.conversation', 'conversation')
+      .leftJoinAndSelect('conversation.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'user')
+      .where('message.id = :messageId', { messageId })
+      .getOne();
+
+    if (!message) {
+      throw new BadRequestException('Message is not exist.');
+    }
+
+    if (
+      message.senderId.id === user.id ||
+      message.usersRead.some((_user) => _user.readBy.id === user.id)
+    ) {
+      return message;
+    }
+
+    const userRead = new UserReadMessage({ message, readBy: user });
+
+    await this.userReadMessageRepository.save(userRead);
+
+    const userIds: number[] = [];
+    message.conversation.participants.map((participant) => {
+      if (participant.user.id !== user.id) {
+        return userIds.push(participant.user.id);
+      }
+    });
+
+    this.eventsGateway.readMessage(message, userIds);
 
     return new HttpResponse().success();
   }

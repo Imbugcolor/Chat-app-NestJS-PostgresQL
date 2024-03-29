@@ -4,6 +4,7 @@ import { Conversation } from './entities/conversation.entity';
 import { In, Repository } from 'typeorm';
 import { Participant } from './entities/participant.entity';
 import { User } from 'src/auth/users/entities/user.entity';
+import { Message } from 'src/messages/entities/message.entity';
 
 @Injectable()
 export class ConversationsService {
@@ -52,25 +53,42 @@ export class ConversationsService {
   }
 
   async getConversations(user: User) {
-    const conversations = await this.conversationRepository.find({
-      relations: {
-        participants: {
-          user: true,
-        },
-      },
-      where: {
-        participants: {
-          user: {
-            id: user.id,
-          },
-        },
-      },
+    const conversations = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .leftJoinAndSelect('conversation.messages', 'message')
+      .leftJoinAndSelect('message.senderId', 'sender')
+      .leftJoinAndSelect('message.usersRead', 'usersRead')
+      .leftJoinAndSelect('usersRead.readBy', 'readBy')
+      .leftJoinAndSelect('conversation.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'user')
+      .where('user.id = :userId', { userId: user.id })
+      .orderBy('message.createdAt', 'DESC')
+      .getMany();
+
+    const conversationsRead: number[] = [];
+    conversations.map((conversation) => {
+      const lastMessage: Message = conversation.messages[0]; // Assuming messages are sorted in descending order of createdAt
+
+      if (lastMessage.senderId.id === user.id) {
+        return conversationsRead.push(conversation.id);
+      } else {
+        if (
+          lastMessage &&
+          lastMessage.usersRead &&
+          lastMessage.usersRead.some(
+            (userRead) => userRead.readBy.id === user.id,
+          )
+        ) {
+          return conversationsRead.push(conversation.id);
+        }
+        return;
+      }
     });
 
     const ids = conversations.map((cv) => cv.id);
 
     // retrive conversations with all participants in each conversation
-    const getConversations = await this.conversationRepository.find({
+    const _conversation = await this.conversationRepository.find({
       relations: {
         participants: {
           user: true,
@@ -79,6 +97,14 @@ export class ConversationsService {
       where: { id: In(ids) },
     });
 
-    return getConversations;
+    const __conversations = _conversation.map((conversation) => {
+      if (conversationsRead.some((cv) => cv === conversation.id)) {
+        return new Conversation({ ...conversation, isRead: true });
+      } else {
+        return new Conversation({ ...conversation, isRead: false });
+      }
+    });
+
+    return __conversations;
   }
 }

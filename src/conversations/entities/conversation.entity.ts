@@ -47,4 +47,7 @@ export class Conversation {
   @CreateDateColumn()
   @Expose()
   createdAt: Date;
+
+  @Expose()
+  isRead?: boolean;
 }

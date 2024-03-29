@@ -108,13 +108,13 @@ export class EventsGateway
   ) {
     if (usersId.length > 0) {
       const serializeSenderData = this.serializeUserData(message.senderId);
-      const serializeUsersReadData: UserReadMessage[] =
-        message.usersRead?.map((userRead) => {
-          return {
-            ...userRead,
-            user: this.serializeUserData(userRead.readBy),
-          };
-        }) || [];
+      // const serializeUsersReadData: UserReadMessage[] =
+      //   message.usersRead?.map((userRead) => {
+      //     return {
+      //       ...userRead,
+      //       user: this.serializeUserData(userRead.readBy),
+      //     };
+      //   }) || [];
 
       const serializeUserParticipantsData: Participant[] =
         message.conversation.participants.map((participant) => {
@@ -133,7 +133,6 @@ export class EventsGateway
         ...message,
         senderId: serializeSenderData,
         conversation,
-        usersRead: serializeUsersReadData,
       };
 
       await Promise.all(

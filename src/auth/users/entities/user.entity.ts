@@ -6,6 +6,7 @@ import { Expose } from 'class-transformer';
 import { Conversation } from 'src/conversations/entities/conversation.entity';
 import { Message } from 'src/messages/entities/message.entity';
 import { Participant } from 'src/conversations/entities/participant.entity';
+import { UserReadMessage } from 'src/messages/entities/userReadMessage.entity';
 
 @Entity()
 export class User {
@@ -73,6 +74,12 @@ export class User {
     eager: true,
   })
   participants: Participant[];
+
+  @OneToMany(() => UserReadMessage, (rdmsg) => rdmsg.readBy, {
+    cascade: true,
+    eager: true,
+  })
+  readMessages: UserReadMessage[];
 
   @Expose()
   accessToken?: string;
