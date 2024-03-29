@@ -20,8 +20,10 @@ import { Conversation } from 'src/conversations/entities/conversation.entity';
 import {
   CREATE_MESSAGE,
   DELETE_MESSAGE,
+  READ_MESSAGE,
   UPDATE_MESSAGE,
 } from './constants/messageEvent.contanst';
+import { UserReadMessage } from 'src/messages/entities/userReadMessage.entity';
 
 @WebSocketGateway()
 @UseFilters(WebsocketExceptionsFilter)
@@ -56,6 +58,21 @@ export class EventsGateway
 
         // store client into Redis
         await this.redisService.addClient(client.data.user.id, client.id);
+
+        // emit online status user to client when loggin first time
+        const logginTimes = await this.redisService.getClient(
+          client.data.user.id,
+        );
+
+        if (logginTimes.length === 1) {
+          const clients = await this.redisService.getAllClients();
+          const socketClients = Object.keys(clients)
+            .filter((key) => key !== `userId:${client.data.user.id}`) // Exclude 'userId:1'
+            .flatMap((key) => clients[key]);
+          socketClients.forEach((_client) => {
+            this.server.to(`${_client}`).emit('userOnline', client.data.user);
+          });
+        }
       } catch (error) {
         client.disconnect();
       }
@@ -66,6 +83,17 @@ export class EventsGateway
 
   async handleDisconnect(client: Socket) {
     await this.redisService.removeClient(client.data?.user?.id, client.id);
+
+    // emit offline status user to client when logout all session loggin
+    const logginTimes = await this.redisService.getClient(client.data.user.id);
+
+    if (!logginTimes || logginTimes.length < 1) {
+      const clients = await this.redisService.getAllClients();
+      const socketClients = Object.keys(clients).flatMap((key) => clients[key]);
+      socketClients.forEach((_client) => {
+        this.server.to(`${_client}`).emit('userOffline', client.data.user);
+      });
+    }
   }
 
   @SubscribeMessage('message')
@@ -80,6 +108,14 @@ export class EventsGateway
   ) {
     if (usersId.length > 0) {
       const serializeSenderData = this.serializeUserData(message.senderId);
+      const serializeUsersReadData: UserReadMessage[] =
+        message.usersRead?.map((userRead) => {
+          return {
+            ...userRead,
+            user: this.serializeUserData(userRead.readBy),
+          };
+        }) || [];
+
       const serializeUserParticipantsData: Participant[] =
         message.conversation.participants.map((participant) => {
           return {
@@ -93,10 +129,11 @@ export class EventsGateway
         participants: serializeUserParticipantsData,
       };
 
-      const serialData = {
+      const serialData: Message = {
         ...message,
         senderId: serializeSenderData,
         conversation,
+        usersRead: serializeUsersReadData,
       };
 
       await Promise.all(
@@ -121,6 +158,10 @@ export class EventsGateway
 
   async deleteMessage(message: Message, usersId: number[]) {
     await this.handleMessageEvent(message, usersId, DELETE_MESSAGE);
+  }
+
+  async readMessage(message: Message, usersId: number[]) {
+    await this.handleMessageEvent(message, usersId, READ_MESSAGE);
   }
 
   private serializeUserData(data: User): User {

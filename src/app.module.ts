@@ -16,6 +16,7 @@ import { MessagesModule } from './messages/messages.module';
 import { Message } from './messages/entities/message.entity';
 import { Attachment } from './messages/entities/attachment.entity';
 import { RedisModule } from './redis/redis.module';
+import { UserReadMessage } from './messages/entities/userReadMessage.entity';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { RedisModule } from './redis/redis.module';
           ConversationDeleted,
           Message,
           Attachment,
+          UserReadMessage,
         ],
         synchronize: true,
       }),

@@ -19,6 +19,17 @@ export class RedisService {
     }
   }
 
+  async getAllClients(): Promise<{ [key: string]: string }> {
+    const keys = await this.cacheManager.store.keys();
+    const result: { [key: string]: string } = {};
+
+    for (const key of keys) {
+      result[key] = await this.cacheManager.get(key);
+    }
+
+    return result;
+  }
+
   async getClient(userId: number) {
     try {
       const cachedSocketIds = await this.cacheManager.get<string[]>(

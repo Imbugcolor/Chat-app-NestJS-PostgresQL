@@ -13,6 +13,7 @@ import {
 import { MESSAGETYPE } from '../enums/messageType.enum';
 import { Attachment } from './attachment.entity';
 import { Expose } from 'class-transformer';
+import { UserReadMessage } from './userReadMessage.entity';
 
 @Entity()
 export class Message {
@@ -46,9 +47,9 @@ export class Message {
   @Expose()
   attachments: Attachment[];
 
-  @OneToMany(() => User, (user) => user.readMesages)
+  @OneToMany(() => UserReadMessage, (user) => user.message)
   @Expose()
-  readBy: User[];
+  usersRead: UserReadMessage[];
 
   @Column({ default: false })
   @Expose()
