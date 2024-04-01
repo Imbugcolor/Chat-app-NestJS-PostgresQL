@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Conversation } from 'src/conversations/entities/conversation.entity';
-import { Repository } from 'typeorm';
-import { Message } from './entities/message.entity';
+import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Message, PaginatedMessages } from './entities/message.entity';
 import { User } from 'src/auth/users/entities/user.entity';
 import { EventsGateway } from 'src/events/events.gateway';
 import { HttpResponse } from 'src/httpReponses/http.response';
 import { UserReadMessage } from './entities/userReadMessage.entity';
+import { PaginateOptions, paginate } from 'src/common/pagination/paginator';
 
 @Injectable()
 export class MessagesService {
@@ -20,29 +21,28 @@ export class MessagesService {
     private eventsGateway: EventsGateway,
   ) {}
 
-  async getMessageByConversationId(user: User, conversationId: number) {
-    const conversation = await this.conversationRepository.findOne({
-      where: { id: conversationId },
-      relations: {
-        messages: {
-          senderId: true,
-        },
-      },
-    });
-
-    return conversation;
+  private async getMessageByConversationIdQuery(
+    user: User,
+    conversationId: number,
+  ): Promise<SelectQueryBuilder<Message>> {
+    return this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoin('message.conversation', 'conversation')
+      .leftJoinAndSelect('message.senderId', 'senderId')
+      .where('conversation.id = :conversationId', { conversationId })
+      .orderBy('message.createdAt', 'DESC');
   }
 
-  // async getParticipantsByConversation(conversationId: number) {
-  //   const participants = await this.conversationRepository.findOne({
-  //     relations: {
-
-  //     },
-  //     where: {
-  //       id: conversationId,
-  //     },
-  //   })
-  // }
+  public async getMessageByConversationIdPaginated(
+    user: User,
+    conversationId: number,
+    paginateOptions?: PaginateOptions,
+  ): Promise<PaginatedMessages> {
+    return await paginate(
+      await this.getMessageByConversationIdQuery(user, conversationId),
+      paginateOptions,
+    );
+  }
 
   async createMessage(
     user: User,

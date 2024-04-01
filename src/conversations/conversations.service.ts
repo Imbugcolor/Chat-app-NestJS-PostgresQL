@@ -5,6 +5,8 @@ import { In, Repository } from 'typeorm';
 import { Participant } from './entities/participant.entity';
 import { User } from 'src/auth/users/entities/user.entity';
 import { Message } from 'src/messages/entities/message.entity';
+import { HttpResponse } from 'src/httpReponses/http.response';
+import { EventsGateway } from 'src/events/events.gateway';
 
 @Injectable()
 export class ConversationsService {
@@ -15,6 +17,7 @@ export class ConversationsService {
     private conversationRepository: Repository<Conversation>,
     @InjectRepository(Participant)
     private participantRepository: Repository<Participant>,
+    private eventsGateway: EventsGateway,
   ) {}
 
   async createConversation(user: User, userIds: number[]) {
@@ -50,6 +53,24 @@ export class ConversationsService {
     await this.conversationRepository.save(newConversation);
 
     return newConversation;
+  }
+
+  async getConversation(user: User, conversationId: number) {
+    try {
+      const conversation = await this.conversationRepository
+        .createQueryBuilder('conversation')
+        .leftJoinAndSelect('conversation.participants', 'participants')
+        .leftJoinAndSelect('participants.user', 'user')
+        .where('conversation.id = :conversationId', { conversationId })
+        .andWhere('user.id = :userId', { userId: user.id })
+        .getOne();
+      if (conversation === null) {
+        throw new BadRequestException('Conversation not exists.');
+      }
+      return conversation;
+    } catch (error) {
+      throw new BadRequestException(error);
+    }
   }
 
   async getConversations(user: User) {
@@ -106,5 +127,93 @@ export class ConversationsService {
     });
 
     return __conversations;
+  }
+
+  private async getUsersParticipantByConversation(conversationId: number) {
+    const cv = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .leftJoinAndSelect('conversation.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'user')
+      .where('conversation.id = :conversationId', { conversationId })
+      .getOne();
+
+    const participantIds: number[] = [];
+
+    cv?.participants.map((participant) =>
+      participantIds.push(participant.user.id),
+    );
+
+    return participantIds;
+  }
+
+  async inviteJoinConversation(
+    user: User,
+    conversationId: number,
+    inviteUserIds: number[],
+  ) {
+    const conversation = await this.getConversation(user, conversationId);
+
+    // get users will realtime event
+    const userIds: number[] =
+      await this.getUsersParticipantByConversation(conversationId);
+
+    // create new participants
+    const participants: Participant[] = [];
+    await Promise.all(
+      inviteUserIds.map(async (id) => {
+        const user = await this.userRepository.findOneBy({ id });
+
+        if (!user) {
+          throw new BadRequestException(`User ${id} is not exists.`);
+        }
+
+        const isJoined = await this.participantRepository
+          .createQueryBuilder('participant')
+          .leftJoinAndSelect('participant.conversation', 'conversation')
+          .leftJoinAndSelect('participant.user', 'user')
+          .where('conversation.id = :conversationId', { conversationId })
+          .andWhere('user.id = :userId', { userId: user.id })
+          .getOne();
+
+        if (isJoined) {
+          return inviteUserIds.filter((_id) => _id !== id);
+        }
+
+        const inviteUser = new Participant({ user, conversation });
+
+        const participant = await this.participantRepository.save(inviteUser);
+
+        participants.push(participant);
+      }),
+    );
+
+    // send new participants to eventsGateway
+    this.eventsGateway.newUsersJoinConversation(participants, userIds);
+
+    return participants;
+  }
+
+  async leaveConversation(user: User, conversationId: number) {
+    try {
+      await this.participantRepository
+        .createQueryBuilder()
+        .delete()
+        .from(Participant)
+        .where('conversationId = :conversationId', { conversationId })
+        .andWhere('userId = :userId', { userId: user.id })
+        .execute();
+
+      const participantIds: number[] =
+        await this.getUsersParticipantByConversation(conversationId);
+
+      this.eventsGateway.leaveConversation(
+        { user, conversation: conversationId },
+        participantIds,
+      );
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+
+    return new HttpResponse().success();
   }
 }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, OnApplicationBootstrap } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EventsModule } from './events/events.module';
@@ -17,6 +17,7 @@ import { Message } from './messages/entities/message.entity';
 import { Attachment } from './messages/entities/attachment.entity';
 import { RedisModule } from './redis/redis.module';
 import { UserReadMessage } from './messages/entities/userReadMessage.entity';
+import { RedisService } from './redis/redis.service';
 
 @Module({
   imports: [
@@ -54,4 +55,11 @@ import { UserReadMessage } from './messages/entities/userReadMessage.entity';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements OnApplicationBootstrap {
+  constructor(private readonly redisService: RedisService) {}
+
+  async onApplicationBootstrap(): Promise<void> {
+    // Clear cache on application startup
+    this.redisService.clearCacheStartingWith('userId');
+  }
+}

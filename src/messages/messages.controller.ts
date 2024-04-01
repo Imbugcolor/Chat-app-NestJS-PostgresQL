@@ -8,14 +8,18 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   SerializeOptions,
   UseGuards,
   UseInterceptors,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { GetUser } from 'src/auth/decorators/getUser.decorator';
 import { AccessTokenGuard } from 'src/auth/guards/accessToken.guard';
 import { User } from 'src/auth/users/entities/user.entity';
+import { ListMessages } from './dto/getMessages.dto';
 
 @Controller('messages')
 @SerializeOptions({ strategy: 'excludeAll' })
@@ -24,12 +28,17 @@ export class MessagesController {
 
   @Get('/:conversationId')
   @UseGuards(AccessTokenGuard)
+  @UsePipes(new ValidationPipe({ transform: true }))
   @UseInterceptors(ClassSerializerInterceptor)
   async getMessagesByConversationId(
     @GetUser() user: User,
     @Param('conversationId', ParseIntPipe) id: number,
+    @Query() filter: ListMessages,
   ) {
-    return this.messagesService.getMessageByConversationId(user, id);
+    return this.messagesService.getMessageByConversationIdPaginated(user, id, {
+      currentPage: filter.page,
+      limit: filter.limit,
+    });
   }
 
   @Post('/:conversationId')

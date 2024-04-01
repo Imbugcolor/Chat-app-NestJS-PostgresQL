@@ -2,7 +2,9 @@ import {
   Body,
   ClassSerializerInterceptor,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
   SerializeOptions,
   UseGuards,
@@ -33,5 +35,29 @@ export class ConversationsController {
   @UseInterceptors(ClassSerializerInterceptor)
   getConversations(@GetUser() user: User) {
     return this.conversationsService.getConversations(user);
+  }
+
+  @Post('invite/:id')
+  @UseGuards(AccessTokenGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
+  inviteJoinConversation(
+    @GetUser() user: User,
+    @Param('id') conversationId: number,
+    @Body('userIds') userIds: number[],
+  ) {
+    return this.conversationsService.inviteJoinConversation(
+      user,
+      conversationId,
+      userIds,
+    );
+  }
+
+  @Delete('leave/:id')
+  @UseGuards(AccessTokenGuard)
+  leaveConversation(
+    @GetUser() user: User,
+    @Param('id') conversationId: number,
+  ) {
+    return this.conversationsService.leaveConversation(user, conversationId);
   }
 }

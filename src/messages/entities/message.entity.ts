@@ -14,6 +14,7 @@ import { MESSAGETYPE } from '../enums/messageType.enum';
 import { Attachment } from './attachment.entity';
 import { Expose } from 'class-transformer';
 import { UserReadMessage } from './userReadMessage.entity';
+import { PaginationResult } from 'src/common/pagination/paginator';
 
 @Entity()
 export class Message {
@@ -63,3 +64,5 @@ export class Message {
   @Expose()
   updatedAt: Date;
 }
+
+export type PaginatedMessages = PaginationResult<Message>;

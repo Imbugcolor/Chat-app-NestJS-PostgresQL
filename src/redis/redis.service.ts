@@ -61,4 +61,12 @@ export class RedisService {
       console.log(error);
     }
   }
+
+  async clearCacheStartingWith(pattern: string): Promise<void> {
+    const keys = await this.cacheManager.store.keys();
+    const keysToDelete = keys.filter((key: string) => key.startsWith(pattern));
+    await Promise.all(
+      keysToDelete.map((key: string) => this.cacheManager.del(key)),
+    );
+  }
 }

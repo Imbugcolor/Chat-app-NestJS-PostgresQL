@@ -20,10 +20,13 @@ import { Conversation } from 'src/conversations/entities/conversation.entity';
 import {
   CREATE_MESSAGE,
   DELETE_MESSAGE,
+  NEW_USERS_JOIN_CONVERSATION,
   READ_MESSAGE,
   UPDATE_MESSAGE,
+  USER_LEAVE_CONVERSATION,
 } from './constants/messageEvent.contanst';
 import { UserReadMessage } from 'src/messages/entities/userReadMessage.entity';
+import { UserLeavePayload } from './types/userLeavePayload.type';
 
 @WebSocketGateway()
 @UseFilters(WebsocketExceptionsFilter)
@@ -161,6 +164,49 @@ export class EventsGateway
 
   async readMessage(message: Message, usersId: number[]) {
     await this.handleMessageEvent(message, usersId, READ_MESSAGE);
+  }
+
+  async newUsersJoinConversation(
+    participants: Participant[],
+    userIds: number[],
+  ) {
+    const serializeUserParticipantsData: Participant[] = participants.map(
+      (participant) => {
+        return {
+          ...participant,
+          user: this.serializeUserData(participant.user),
+        };
+      },
+    );
+
+    await Promise.all(
+      userIds.map(async (id) => {
+        const clients = await this.redisService.getClient(id);
+        clients.forEach((client) => {
+          this.server
+            .to(`${client}`)
+            .emit(NEW_USERS_JOIN_CONVERSATION, serializeUserParticipantsData);
+        });
+      }),
+    );
+  }
+
+  async leaveConversation(payload: UserLeavePayload, participantIds: number[]) {
+    const serializeData = {
+      ...payload,
+      user: this.serializeUserData(payload.user),
+    };
+
+    await Promise.all(
+      participantIds.map(async (id) => {
+        const clients = await this.redisService.getClient(id);
+        clients.forEach((client) => {
+          this.server
+            .to(`${client}`)
+            .emit(USER_LEAVE_CONVERSATION, serializeData);
+        });
+      }),
+    );
   }
 
   private serializeUserData(data: User): User {
