@@ -8,6 +8,9 @@ import { EventsGateway } from 'src/events/events.gateway';
 import { HttpResponse } from 'src/httpReponses/http.response';
 import { UserReadMessage } from './entities/userReadMessage.entity';
 import { PaginateOptions, paginate } from 'src/common/pagination/paginator';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { Attachment } from './entities/attachment.entity';
+import { MESSAGETYPE } from './enums/messageType.enum';
 
 @Injectable()
 export class MessagesService {
@@ -18,7 +21,10 @@ export class MessagesService {
     @InjectRepository(User) private userRepository: Repository<User>,
     @InjectRepository(UserReadMessage)
     private userReadMessageRepository: Repository<UserReadMessage>,
+    @InjectRepository(Attachment)
+    private attachmentRepository: Repository<Attachment>,
     private eventsGateway: EventsGateway,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   private async getMessageByConversationIdQuery(
@@ -48,6 +54,7 @@ export class MessagesService {
     user: User,
     conversationId: number,
     context: string,
+    files?: Express.Multer.File[],
   ): Promise<Message> {
     const conversation = await this.conversationRepository.findOne({
       relations: {
@@ -58,11 +65,37 @@ export class MessagesService {
       where: { id: conversationId },
     });
 
-    const message = new Message({
-      senderId: user,
-      text: context,
-      conversation,
-    });
+    let message: Message;
+
+    if (files && files.length > 0) {
+      const attachments: Attachment[] = [];
+      const imagesResponse = await this.cloudinaryService.uploadFiles(files);
+
+      await Promise.all(
+        imagesResponse.images.map(async (img) => {
+          const attachment = new Attachment({
+            url: img.url,
+            public_id: img.public_id,
+          });
+          await this.attachmentRepository.save(attachment);
+          attachments.push(attachment);
+        }),
+      );
+
+      message = new Message({
+        senderId: user,
+        text: context,
+        conversation,
+        attachments,
+        message_type: MESSAGETYPE.PHOTOS,
+      });
+    } else {
+      message = new Message({
+        senderId: user,
+        text: context,
+        conversation,
+      });
+    }
 
     await this.messageRepository.save(message);
 
@@ -122,6 +155,7 @@ export class MessagesService {
           },
         },
         senderId: true,
+        attachments: true,
       },
       where: {
         id: messageId,
@@ -134,6 +168,12 @@ export class MessagesService {
 
     if (user.id !== message.senderId.id) {
       throw new BadRequestException('Invalid request.');
+    }
+
+    if (message.attachments && message.attachments.length > 0) {
+      const public_ids = [];
+      message.attachments.map((att) => public_ids.push(att.public_id));
+      await this.cloudinaryService.destroyFiles(public_ids);
     }
 
     await this.messageRepository

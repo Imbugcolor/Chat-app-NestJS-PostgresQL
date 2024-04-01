@@ -18,6 +18,7 @@ import { Attachment } from './messages/entities/attachment.entity';
 import { RedisModule } from './redis/redis.module';
 import { UserReadMessage } from './messages/entities/userReadMessage.entity';
 import { RedisService } from './redis/redis.service';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { RedisService } from './redis/redis.service';
     ConversationsModule,
     MessagesModule,
     RedisModule,
+    CloudinaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -10,6 +10,7 @@ import {
   Post,
   Query,
   SerializeOptions,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
   UsePipes,
@@ -20,6 +21,7 @@ import { GetUser } from 'src/auth/decorators/getUser.decorator';
 import { AccessTokenGuard } from 'src/auth/guards/accessToken.guard';
 import { User } from 'src/auth/users/entities/user.entity';
 import { ListMessages } from './dto/getMessages.dto';
+import { FilesInterceptor } from '@nestjs/platform-express';
 
 @Controller('messages')
 @SerializeOptions({ strategy: 'excludeAll' })
@@ -44,12 +46,14 @@ export class MessagesController {
   @Post('/:conversationId')
   @UseGuards(AccessTokenGuard)
   @UseInterceptors(ClassSerializerInterceptor)
+  @UseInterceptors(FilesInterceptor('files', 5))
   async createMessage(
     @GetUser() user: User,
     @Param('conversationId', ParseIntPipe) id: number,
     @Body('context') context: string,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.messagesService.createMessage(user, id, context);
+    return this.messagesService.createMessage(user, id, context, files);
   }
 
   @Patch('/:messageId')

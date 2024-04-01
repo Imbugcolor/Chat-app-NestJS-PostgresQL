@@ -40,11 +40,13 @@ export class Message {
   @Expose()
   message_type: MESSAGETYPE;
 
-  @Column()
+  @Column({ nullable: true })
   @Expose()
   text: string;
 
-  @OneToMany(() => Attachment, (att) => att.message)
+  @OneToMany(() => Attachment, (att) => att.message, {
+    onDelete: 'CASCADE',
+  })
   @Expose()
   attachments: Attachment[];
 
