@@ -19,6 +19,7 @@ import { RedisModule } from './redis/redis.module';
 import { UserReadMessage } from './messages/entities/userReadMessage.entity';
 import { RedisService } from './redis/redis.service';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { configValidationSchema } from './config/config.schema';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     AuthModule,
     ConfigModule.forRoot({
       envFilePath: [`.env.stage.${process.env.STAGE}`],
+      validationSchema: configValidationSchema,
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
