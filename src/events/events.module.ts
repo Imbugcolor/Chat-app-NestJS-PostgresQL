@@ -5,7 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { RedisModule } from 'src/redis/redis.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), JwtModule.register({}), RedisModule],
+  imports: [ConfigModule, JwtModule.register({}), RedisModule],
   providers: [EventsGateway],
   exports: [EventsGateway],
 })

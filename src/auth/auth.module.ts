@@ -14,7 +14,7 @@ import { JwtRefreshTokenStrategy } from './strategies/jwt-refresh-token.strategy
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule,
     TypeOrmModule.forFeature([User]),
     JwtModule.register({}),
     UsersModule,

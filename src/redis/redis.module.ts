@@ -6,7 +6,7 @@ import * as redisStore from 'cache-manager-redis-store';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule,
     CacheModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

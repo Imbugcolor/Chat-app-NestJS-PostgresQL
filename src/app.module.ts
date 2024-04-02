@@ -24,7 +24,9 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
   imports: [
     EventsModule,
     AuthModule,
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      envFilePath: [`.env.stage.${process.env.STAGE}`],
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
