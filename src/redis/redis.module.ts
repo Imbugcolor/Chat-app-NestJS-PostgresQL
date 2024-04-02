@@ -16,9 +16,6 @@ import * as redisStore from 'cache-manager-redis-store';
         port: configService.get('REDIS_PORT'),
         username: configService.get('REDIS_USERNAME'),
         auth_pass: configService.get('REDIS_PASSWORD'),
-        tls: {
-          servername: configService.get('REDIS_HOST'), // Replace with your Redis host
-        },
         ttl: 0,
       }),
     }),
