@@ -11,7 +11,7 @@ import { UserRole } from './auth/roles/entities/userRoles.entity';
 import { ConversationsModule } from './conversations/conversations.module';
 import { Conversation } from './conversations/entities/conversation.entity';
 import { Participant } from './conversations/entities/participant.entity';
-import { ConversationDeleted } from './conversations/entities/conversationdeleted.entity';
+import { ConversationDeleted } from './conversations/entities/conversationDeleted.entity';
 import { MessagesModule } from './messages/messages.module';
 import { Message } from './messages/entities/message.entity';
 import { Attachment } from './messages/entities/attachment.entity';

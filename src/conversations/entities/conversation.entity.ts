@@ -9,9 +9,9 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import { Participant } from './participant.entity';
-import { ConversationDeleted } from './conversationdeleted.entity';
 import { Expose } from 'class-transformer';
 import { Message } from 'src/messages/entities/message.entity';
+import { ConversationDeleted } from './conversationDeleted.entity';
 
 @Entity()
 export class Conversation {
