@@ -19,4 +19,5 @@ export const configValidationSchema = Joi.object({
   CLOUDINARY_NAME: Joi.string().required(),
   CLOUDINARY_API_KEY: Joi.number().required(),
   CLOUDINARY_API_SECRET: Joi.string().required(),
+  CLIENT_URL: Joi.string().required(),
 });
