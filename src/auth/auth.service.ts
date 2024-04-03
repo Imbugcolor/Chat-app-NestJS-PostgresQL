@@ -101,10 +101,7 @@ export class AuthService {
     }
   }
 
-  async refreshTokens(
-    userId: number,
-    refreshToken: string,
-  ): Promise<{ accessToken: string }> {
+  async refreshTokens(userId: number, refreshToken: string) {
     const user = await this.userRepository.findOneBy({ id: userId });
     if (!user || !user.rf_token) throw new ForbiddenException('Access Denied');
     const refreshTokenMatches = await bcryptjs.compare(
@@ -113,9 +110,7 @@ export class AuthService {
     );
     if (!refreshTokenMatches) throw new ForbiddenException('Access Denied');
     const accessToken = await this.getAccessToken(user.id);
-    return {
-      accessToken,
-    };
+    return new User({ ...user, accessToken });
   }
 
   async signOut(userId: number, res: Response): Promise<{ msg: string }> {

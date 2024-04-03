@@ -25,10 +25,9 @@ import {
   UPDATE_MESSAGE,
   USER_LEAVE_CONVERSATION,
 } from './constants/messageEvent.contanst';
-import { UserReadMessage } from 'src/messages/entities/userReadMessage.entity';
 import { UserLeavePayload } from './types/userLeavePayload.type';
 
-@WebSocketGateway()
+@WebSocketGateway({ cors: true })
 @UseFilters(WebsocketExceptionsFilter)
 @UsePipes(new ValidationPipe({ transform: true }))
 export class EventsGateway
