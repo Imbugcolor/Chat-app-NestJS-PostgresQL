@@ -1,6 +1,7 @@
 import * as Joi from '@hapi/joi';
 
 export const configValidationSchema = Joi.object({
+  PORT: Joi.number().default(3000),
   STAGE: Joi.string().required(),
   DB_HOST: Joi.string().required(),
   DB_PORT: Joi.number().default(5432).required(),
@@ -14,8 +15,9 @@ export const configValidationSchema = Joi.object({
   REDIS_HOST: Joi.string().required(),
   REDIS_PASSWORD: Joi.string().required(),
   REDIS_PORT: Joi.number().default(6379).required(),
-  REDIS_DATABASES: Joi.number().required(),
+  REDIS_USERNAME: Joi.string().required(),
   CLOUDINARY_NAME: Joi.string().required(),
   CLOUDINARY_API_KEY: Joi.number().required(),
   CLOUDINARY_API_SECRET: Joi.string().required(),
+  CLIENT_URL: Joi.string().required(),
 });
