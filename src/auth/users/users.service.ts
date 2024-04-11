@@ -54,4 +54,15 @@ export class UsersService {
 
     return user;
   }
+
+  public async getUsers(searchTerm: string) {
+    const users = await this.userRepository
+      .createQueryBuilder()
+      .select()
+      .where('username ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
+      .orWhere('email ILIKE :searchTerm', { searchTerm: `%${searchTerm}%` })
+      .getManyAndCount();
+
+    return users;
+  }
 }

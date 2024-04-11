@@ -27,6 +27,17 @@ export class Conversation {
   @Expose()
   name: string;
 
+  @Column({ default: null })
+  @Expose()
+  description: string;
+
+  @Column({
+    default:
+      'https://res.cloudinary.com/dnv2v2tiz/image/upload/v1712566566/chat-app-postgresql/mat-avatar_clj1in.jpg',
+  })
+  @Expose()
+  thumbnail: string;
+
   @OneToMany(() => Participant, (participant) => participant.conversation)
   @Expose()
   participants: Participant[];
@@ -50,4 +61,7 @@ export class Conversation {
 
   @Expose()
   isRead?: boolean;
+
+  @Expose()
+  lastMessage?: Message;
 }
