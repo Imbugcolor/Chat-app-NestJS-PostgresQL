@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Conversation } from './entities/conversation.entity';
-import { In, Repository } from 'typeorm';
+import { Repository, UpdateResult } from 'typeorm';
 import { Participant } from './entities/participant.entity';
 import { User } from 'src/auth/users/entities/user.entity';
-import { Message } from 'src/messages/entities/message.entity';
 import { HttpResponse } from 'src/httpReponses/http.response';
 import { EventsGateway } from 'src/events/events.gateway';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 
 @Injectable()
 export class ConversationsService {
@@ -18,6 +18,7 @@ export class ConversationsService {
     @InjectRepository(Participant)
     private participantRepository: Repository<Participant>,
     private eventsGateway: EventsGateway,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async createConversation(user: User, userIds: number[]) {
@@ -52,6 +53,15 @@ export class ConversationsService {
 
     await this.conversationRepository.save(newConversation);
 
+    const ids: number[] = [];
+    newConversation.participants.map((participant) => {
+      if (participant.user.id !== user.id) {
+        return ids.push(participant.user.id);
+      }
+    });
+
+    this.eventsGateway.newConversation(newConversation, userIds);
+
     return newConversation;
   }
 
@@ -59,6 +69,7 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository
         .createQueryBuilder('conversation')
+        .leftJoinAndSelect('conversation.createdBy', 'createdBy')
         .leftJoinAndSelect('conversation.participants', 'participants')
         .leftJoinAndSelect('participants.user', 'user')
         .where('conversation.id = :conversationId', { conversationId })
@@ -87,10 +98,11 @@ export class ConversationsService {
       .getMany();
 
     const conversationsRead: number[] = [];
-    conversations.map((conversation) => {
-      const lastMessage: Message = conversation.messages[0]; // Assuming messages are sorted in descending order of createdAt
 
-      if (lastMessage.senderId.id === user.id) {
+    conversations.map((conversation) => {
+      const lastMessage = conversation.messages[0]; // Assuming messages are sorted in descending order of createdAt
+
+      if (lastMessage && lastMessage.senderId.id === user.id) {
         return conversationsRead.push(conversation.id);
       } else {
         if (
@@ -109,20 +121,32 @@ export class ConversationsService {
     const ids = conversations.map((cv) => cv.id);
 
     // retrive conversations with all participants in each conversation
-    const _conversation = await this.conversationRepository.find({
-      relations: {
-        participants: {
-          user: true,
-        },
-      },
-      where: { id: In(ids) },
-    });
+    const _conversation = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .leftJoinAndSelect('conversation.createdBy', 'createdBy')
+      .leftJoinAndSelect('conversation.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'user')
+      .leftJoinAndSelect('conversation.messages', 'messages')
+      .leftJoinAndSelect('messages.senderId', 'senderId')
+      .where('conversation.id IN (:...ids)', { ids: ids })
+      .orderBy('messages.createdAt', 'DESC')
+      .getMany();
 
     const __conversations = _conversation.map((conversation) => {
       if (conversationsRead.some((cv) => cv === conversation.id)) {
-        return new Conversation({ ...conversation, isRead: true });
+        return new Conversation({
+          ...conversation,
+          messages: [],
+          lastMessage: conversation.messages[0],
+          isRead: true,
+        });
       } else {
-        return new Conversation({ ...conversation, isRead: false });
+        return new Conversation({
+          ...conversation,
+          messages: [],
+          lastMessage: conversation.messages[0],
+          isRead: false,
+        });
       }
     });
 
@@ -215,5 +239,67 @@ export class ConversationsService {
     }
 
     return new HttpResponse().success();
+  }
+
+  async updateNameConversation(
+    user: User,
+    conversationId: number,
+    updateName: string,
+  ): Promise<UpdateResult> {
+    const conversation = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .leftJoinAndSelect('conversation.createdBy', 'createdBy')
+      .update(Conversation)
+      .set({ name: updateName })
+      .where('conversation.id = :id', { id: conversationId })
+      .andWhere('createdBy.id = :userId', { userId: user.id })
+      .execute();
+
+    if (!conversation.affected) {
+      throw new BadRequestException('Conversation not exists.');
+    }
+
+    return conversation;
+  }
+
+  async updateThumbnail(
+    user: User,
+    conversationId: number,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    const conversation = await this.conversationRepository.find({
+      relations: {
+        createdBy: true,
+      },
+      where: {
+        createdBy: {
+          id: user.id,
+        },
+        id: conversationId,
+      },
+    });
+
+    if (!conversation) {
+      throw new BadRequestException('Conversation not exists.');
+    }
+
+    const imageResponse = await this.cloudinaryService.uploadFile(file);
+
+    const { secure_url } = imageResponse;
+
+    const updateConversation = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .leftJoinAndSelect('conversation.createdBy', 'createdBy')
+      .update(Conversation)
+      .set({ thumbnail: secure_url })
+      .where('conversation.id = :id', { id: conversationId })
+      .andWhere('createdBy.id = :userId', { userId: user.id })
+      .execute();
+
+    if (!updateConversation.affected) {
+      throw new BadRequestException('Update thumbnail failed.');
+    }
+
+    return secure_url;
   }
 }

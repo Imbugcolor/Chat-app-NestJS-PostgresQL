@@ -33,6 +33,7 @@ export class MessagesService {
   ): Promise<SelectQueryBuilder<Message>> {
     return this.messageRepository
       .createQueryBuilder('message')
+      .leftJoinAndSelect('message.attachments', 'attachments')
       .leftJoin('message.conversation', 'conversation')
       .leftJoinAndSelect('message.senderId', 'senderId')
       .where('conversation.id = :conversationId', { conversationId })
@@ -84,7 +85,7 @@ export class MessagesService {
 
       message = new Message({
         senderId: user,
-        text: context,
+        text: JSON.parse(context),
         conversation,
         attachments,
         message_type: MESSAGETYPE.PHOTOS,

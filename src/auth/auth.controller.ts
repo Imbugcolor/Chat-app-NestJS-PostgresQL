@@ -29,8 +29,9 @@ export class AuthController {
     return this.authService.login(loginDto, response);
   }
 
-  @UseGuards(RefreshTokenGuard)
   @Get('refreshtoken')
+  @UseGuards(RefreshTokenGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
   refreshTokens(@Req() req: Request) {
     const userId = req.user['id'];
     const refreshToken = req.user['refreshToken'];

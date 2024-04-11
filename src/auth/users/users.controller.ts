@@ -5,6 +5,7 @@ import {
   Controller,
   Get,
   Post,
+  Query,
   SerializeOptions,
   UseGuards,
   UseInterceptors,
@@ -36,6 +37,13 @@ export class UsersController {
   @UseGuards(AccessTokenGuard)
   async getUser(@GetUser() user: User) {
     return user;
+  }
+
+  @Get('search')
+  @UseGuards(AccessTokenGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
+  async getUsers(@Query('searchTerm') searchTerm: string) {
+    return this.usersService.getUsers(searchTerm);
   }
 
   @Get('admin')
