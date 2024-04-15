@@ -76,11 +76,12 @@ export class MessagesController {
     return this.messagesService.deleteMessage(user, id);
   }
 
-  @Patch('read/:messageId')
+  @Patch('read/:conversationId')
   @UseGuards(AccessTokenGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
   async readMessage(
     @GetUser() user: User,
-    @Param('messageId', ParseIntPipe) id: number,
+    @Param('conversationId', ParseIntPipe) id: number,
   ) {
     return this.messagesService.readMessage(user, id);
   }

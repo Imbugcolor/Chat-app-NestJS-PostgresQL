@@ -57,14 +57,12 @@ export class MessagesService {
     context: string,
     files?: Express.Multer.File[],
   ): Promise<Message> {
-    const conversation = await this.conversationRepository.findOne({
-      relations: {
-        participants: {
-          user: true,
-        },
-      },
-      where: { id: conversationId },
-    });
+    const conversation = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .leftJoinAndSelect('conversation.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'user')
+      .where('conversation.id = :conversationId', { conversationId })
+      .getOne();
 
     let message: Message;
 
@@ -196,42 +194,61 @@ export class MessagesService {
     return new HttpResponse().success();
   }
 
-  async readMessage(user: User, messageId: number) {
-    const message = await this.messageRepository
-      .createQueryBuilder('message')
-      .leftJoinAndSelect('message.senderId', 'senderId')
-      .leftJoinAndSelect('message.usersRead', 'usersRead')
-      .leftJoinAndSelect('usersRead.readBy', 'readBy')
-      .leftJoinAndSelect('message.conversation', 'conversation')
+  async readMessage(user: User, conversationId: number) {
+    const _conversation = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .leftJoinAndSelect('conversation.createdBy', 'createdBy')
       .leftJoinAndSelect('conversation.participants', 'participants')
       .leftJoinAndSelect('participants.user', 'user')
-      .where('message.id = :messageId', { messageId })
+      .leftJoinAndSelect('conversation.messages', 'messages')
+      .leftJoinAndSelect('messages.senderId', 'senderId')
+      .leftJoinAndSelect('messages.usersRead', 'usersRead')
+      .leftJoinAndSelect('usersRead.readBy', 'readBy')
+      .where('conversation.id = :cvId', { cvId: conversationId })
+      .orderBy('messages.createdAt', 'DESC')
       .getOne();
 
-    if (!message) {
-      throw new BadRequestException('Message is not exist.');
+    if (!_conversation) {
+      throw new BadRequestException('Conversation not exists.');
+    }
+
+    if (_conversation.messages.length < 1) {
+      return;
     }
 
     if (
-      message.senderId.id === user.id ||
-      message.usersRead.some((_user) => _user.readBy.id === user.id)
+      _conversation.messages[0].senderId.id === user.id ||
+      _conversation.messages[0].usersRead.some(
+        (_user) => _user.readBy.id === user.id,
+      )
     ) {
-      return message;
+      return _conversation.messages[0];
     }
 
-    const userRead = new UserReadMessage({ message, readBy: user });
+    const userRead = new UserReadMessage({
+      message: _conversation.messages[0],
+      readBy: user,
+    });
 
     await this.userReadMessageRepository.save(userRead);
 
     const userIds: number[] = [];
-    message.conversation.participants.map((participant) => {
+    _conversation.participants.map((participant) => {
       if (participant.user.id !== user.id) {
         return userIds.push(participant.user.id);
       }
     });
 
-    this.eventsGateway.readMessage(message, userIds);
+    const newUsersRead = [..._conversation.messages[0].usersRead, userRead];
 
-    return new HttpResponse().success();
+    const messageReponseData = new Message({
+      ..._conversation.messages[0],
+      conversation: _conversation,
+      usersRead: newUsersRead,
+    });
+
+    this.eventsGateway.readMessage(messageReponseData, userIds);
+
+    return messageReponseData;
   }
 }

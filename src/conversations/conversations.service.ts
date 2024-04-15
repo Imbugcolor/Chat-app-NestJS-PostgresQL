@@ -128,6 +128,8 @@ export class ConversationsService {
       .leftJoinAndSelect('participants.user', 'user')
       .leftJoinAndSelect('conversation.messages', 'messages')
       .leftJoinAndSelect('messages.senderId', 'senderId')
+      .leftJoinAndSelect('messages.usersRead', 'usersRead')
+      .leftJoinAndSelect('usersRead.readBy', 'readBy')
       .where('conversation.id IN (:...ids)', { ids: ids })
       .orderBy('messages.createdAt', 'DESC')
       .getMany();
