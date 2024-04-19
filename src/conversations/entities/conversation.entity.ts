@@ -64,4 +64,7 @@ export class Conversation {
 
   @Expose()
   lastMessage?: Message;
+
+  @Expose()
+  numUnReads?: number;
 }

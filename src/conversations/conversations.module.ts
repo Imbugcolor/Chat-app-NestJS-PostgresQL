@@ -7,10 +7,11 @@ import { Participant } from './entities/participant.entity';
 import { User } from 'src/auth/users/entities/user.entity';
 import { EventsModule } from 'src/events/events.module';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
+import { Message } from 'src/messages/entities/message.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Conversation, Participant, User]),
+    TypeOrmModule.forFeature([Conversation, Participant, User, Message]),
     EventsModule,
     CloudinaryModule,
   ],

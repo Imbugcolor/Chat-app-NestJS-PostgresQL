@@ -11,6 +11,7 @@ import { PaginateOptions, paginate } from 'src/common/pagination/paginator';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { Attachment } from './entities/attachment.entity';
 import { MESSAGETYPE } from './enums/messageType.enum';
+import { plainToClass } from 'class-transformer';
 
 @Injectable()
 export class MessagesService {
@@ -93,6 +94,7 @@ export class MessagesService {
         senderId: user,
         text: context,
         conversation,
+        attachments: [],
       });
     }
 
@@ -115,19 +117,14 @@ export class MessagesService {
     messageId: number,
     context: string,
   ): Promise<Message> {
-    const message = await this.messageRepository.findOne({
-      relations: {
-        conversation: {
-          participants: {
-            user: true,
-          },
-        },
-        senderId: true,
-      },
-      where: {
-        id: messageId,
-      },
-    });
+    const message = await this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.conversation', 'conversation')
+      .leftJoinAndSelect('conversation.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'user')
+      .leftJoinAndSelect('message.senderId', 'senderId')
+      .where('message.id = :id', { id: messageId })
+      .getOne();
 
     message.text = context;
 
@@ -146,20 +143,15 @@ export class MessagesService {
   }
 
   async deleteMessage(user: User, messageId: number) {
-    const message = await this.messageRepository.findOne({
-      relations: {
-        conversation: {
-          participants: {
-            user: true,
-          },
-        },
-        senderId: true,
-        attachments: true,
-      },
-      where: {
-        id: messageId,
-      },
-    });
+    const message = await this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.conversation', 'conversation')
+      .leftJoinAndSelect('conversation.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'user')
+      .leftJoinAndSelect('message.senderId', 'senderId')
+      .leftJoinAndSelect('message.attachments', 'attachments')
+      .where('message.id = :id', { id: messageId })
+      .getOne();
 
     if (!message) {
       throw new BadRequestException('Message is not exists.');
@@ -247,7 +239,10 @@ export class MessagesService {
       usersRead: newUsersRead,
     });
 
-    this.eventsGateway.readMessage(messageReponseData, userIds);
+    this.eventsGateway.readMessage(
+      plainToClass(Message, messageReponseData),
+      userIds,
+    );
 
     return messageReponseData;
   }

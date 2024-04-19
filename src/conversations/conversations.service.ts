@@ -7,6 +7,9 @@ import { User } from 'src/auth/users/entities/user.entity';
 import { HttpResponse } from 'src/httpReponses/http.response';
 import { EventsGateway } from 'src/events/events.gateway';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { MESSAGETYPE } from 'src/messages/enums/messageType.enum';
+import { Message } from 'src/messages/entities/message.entity';
+import { Attachment } from 'src/messages/entities/attachment.entity';
 
 @Injectable()
 export class ConversationsService {
@@ -17,6 +20,8 @@ export class ConversationsService {
     private conversationRepository: Repository<Conversation>,
     @InjectRepository(Participant)
     private participantRepository: Repository<Participant>,
+    @InjectRepository(Message)
+    private messageRepository: Repository<Message>,
     private eventsGateway: EventsGateway,
     private cloudinaryService: CloudinaryService,
   ) {}
@@ -135,12 +140,23 @@ export class ConversationsService {
       .getMany();
 
     const __conversations = _conversation.map((conversation) => {
+      let numUnReads = 0;
+      for (const message of conversation.messages) {
+        if (
+          message.senderId.id === user.id ||
+          message.usersRead.some((usr) => usr.readBy.id === user.id)
+        ) {
+          break; // Exit the loop when encountering a read message
+        }
+        numUnReads++;
+      }
       if (conversationsRead.some((cv) => cv === conversation.id)) {
         return new Conversation({
           ...conversation,
           messages: [],
           lastMessage: conversation.messages[0],
           isRead: true,
+          numUnReads,
         });
       } else {
         return new Conversation({
@@ -148,6 +164,7 @@ export class ConversationsService {
           messages: [],
           lastMessage: conversation.messages[0],
           isRead: false,
+          numUnReads,
         });
       }
     });
@@ -303,5 +320,31 @@ export class ConversationsService {
     }
 
     return secure_url;
+  }
+
+  async getPhotosByConversation(
+    user: User,
+    conversationId: number,
+  ): Promise<Attachment[]> {
+    const messages = await this.messageRepository
+      .createQueryBuilder('message')
+      .leftJoinAndSelect('message.attachments', 'attachments')
+      .leftJoinAndSelect('message.conversation', 'conversation')
+      .leftJoinAndSelect('conversation.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'user')
+      .where('conversation.id = :id', { id: conversationId })
+      .andWhere('message.message_type = :messageType', {
+        messageType: MESSAGETYPE.PHOTOS,
+      })
+      .andWhere('user.id = :userId', { userId: user.id })
+      .orderBy('message.createdAt', 'DESC')
+      .getMany();
+
+    const photos: Attachment[] = [];
+    messages.map((msg) => {
+      msg.attachments.map((att) => photos.push(att));
+    });
+
+    return photos;
   }
 }

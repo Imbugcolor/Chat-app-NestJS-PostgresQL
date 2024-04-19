@@ -18,6 +18,7 @@ import { AccessTokenGuard } from 'src/auth/guards/accessToken.guard';
 import { User } from 'src/auth/users/entities/user.entity';
 import { ConversationsService } from './conversations.service';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Attachment } from 'src/messages/entities/attachment.entity';
 
 @Controller('conversations')
 @SerializeOptions({ strategy: 'excludeAll' })
@@ -92,6 +93,18 @@ export class ConversationsController {
       user,
       conversationId,
       file,
+    );
+  }
+
+  @Get('photos/:id')
+  @UseGuards(AccessTokenGuard)
+  getPhotosByConversation(
+    @GetUser() user: User,
+    @Param('id', ParseIntPipe) conversationId: number,
+  ): Promise<Attachment[]> {
+    return this.conversationsService.getPhotosByConversation(
+      user,
+      conversationId,
     );
   }
 }

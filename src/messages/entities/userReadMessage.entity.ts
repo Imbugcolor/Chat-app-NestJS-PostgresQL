@@ -18,7 +18,9 @@ export class UserReadMessage {
   @Expose()
   id: number;
 
-  @ManyToOne(() => Message, (msg) => msg.usersRead)
+  @ManyToOne(() => Message, (msg) => msg.usersRead, {
+    onDelete: 'CASCADE',
+  })
   @Expose()
   message: Message;
 
