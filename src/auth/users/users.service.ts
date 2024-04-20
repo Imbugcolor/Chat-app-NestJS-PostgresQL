@@ -6,6 +6,7 @@ import * as bcryptjs from 'bcryptjs';
 import { RegisterDto } from '../dto/register.dto';
 import { Role } from '../roles/entities/role.entity';
 import { UserRole } from '../roles/entities/userRoles.entity';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class UsersService {
@@ -16,6 +17,7 @@ export class UsersService {
     private roleRepository: Repository<Role>,
     @InjectRepository(Role)
     private userRoleRepository: Repository<UserRole>,
+    private redisService: RedisService,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -64,5 +66,15 @@ export class UsersService {
       .getManyAndCount();
 
     return users;
+  }
+
+  public async getUsersOnline() {
+    const keys = await this.redisService.getKeys();
+    const userIds: number[] = keys.map((key: string) => {
+      const parts = key.split(':');
+      return parseInt(parts[1]); // Extract the number part and convert it to an integer
+    });
+
+    return userIds;
   }
 }

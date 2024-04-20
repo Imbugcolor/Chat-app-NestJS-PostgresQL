@@ -73,7 +73,9 @@ export class EventsGateway
             .filter((key) => key !== `userId:${client.data.user.id}`) // Exclude 'userId:1'
             .flatMap((key) => clients[key]);
           socketClients.forEach((_client) => {
-            this.server.to(`${_client}`).emit('userOnline', client.data.user);
+            this.server
+              .to(`${_client}`)
+              .emit('userOnline', client.data.user.id);
           });
         }
       } catch (error) {
@@ -99,7 +101,7 @@ export class EventsGateway
           (key) => clients[key],
         );
         socketClients.forEach((_client) => {
-          this.server.to(`${_client}`).emit('userOffline', client.data.user);
+          this.server.to(`${_client}`).emit('userOffline', client.data.user.id);
         });
       }
     }

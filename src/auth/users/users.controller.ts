@@ -52,4 +52,10 @@ export class UsersController {
   async getAdminResource() {
     return 'Admin resouce';
   }
+
+  @Get('online')
+  @UseGuards(AccessTokenGuard)
+  async getUsersOnline() {
+    return this.usersService.getUsersOnline();
+  }
 }

@@ -6,6 +6,10 @@ import { Cache } from 'cache-manager';
 export class RedisService {
   constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache) {}
 
+  async getKeys() {
+    return await this.cacheManager.store.keys();
+  }
+
   async addClient(userId: number, socketId: string) {
     try {
       const existingSocketIds = await this.getClient(userId);
@@ -21,6 +25,7 @@ export class RedisService {
 
   async getAllClients(): Promise<{ [key: string]: string }> {
     const keys = await this.cacheManager.store.keys();
+
     const result: { [key: string]: string } = {};
 
     for (const key of keys) {
