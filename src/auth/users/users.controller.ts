@@ -25,7 +25,6 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @UseInterceptors(ClassSerializerInterceptor)
   async register(@Body() registerDto: RegisterDto) {
     if (registerDto.password !== registerDto.cf_password) {
       throw new BadRequestException('Confirm password did not match.');

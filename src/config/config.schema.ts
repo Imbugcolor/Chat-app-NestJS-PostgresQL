@@ -20,4 +20,9 @@ export const configValidationSchema = Joi.object({
   CLOUDINARY_API_KEY: Joi.number().required(),
   CLOUDINARY_API_SECRET: Joi.string().required(),
   CLIENT_URL: Joi.string().required(),
+  TWILIO_ACCOUNT_SID: Joi.string().required(),
+  TWILIO_AUTH_TOKEN: Joi.string().required(),
+  TWILIO_SERVICE_SID: Joi.string().required(),
+  MAIL_USERNAME: Joi.string().required(),
+  MAIL_PASSWORD_APP: Joi.string().required(),
 });

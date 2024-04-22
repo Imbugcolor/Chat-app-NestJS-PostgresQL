@@ -11,6 +11,7 @@ import { AuthController } from './auth.controller';
 import { RolesController } from './roles/roles.controller';
 import { RolesModule } from './roles/roles.module';
 import { JwtRefreshTokenStrategy } from './strategies/jwt-refresh-token.strategy';
+import { OtpModule } from 'src/otp/otp.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { JwtRefreshTokenStrategy } from './strategies/jwt-refresh-token.strategy
     JwtModule.register({}),
     UsersModule,
     RolesModule,
+    OtpModule,
   ],
   controllers: [UsersController, AuthController, RolesController],
   providers: [AuthService, JwtStrategy, JwtRefreshTokenStrategy],

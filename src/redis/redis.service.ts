@@ -74,4 +74,28 @@ export class RedisService {
       keysToDelete.map((key: string) => this.cacheManager.del(key)),
     );
   }
+
+  async delKey(key: string) {
+    try {
+      return await this.cacheManager.del(key);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async setOtp(email: string, otp: string): Promise<string> {
+    try {
+      return await this.cacheManager.set(email, otp);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async getOtp(email: string): Promise<string> {
+    try {
+      return await this.cacheManager.get(email);
+    } catch (error) {
+      console.log(error);
+    }
+  }
 }

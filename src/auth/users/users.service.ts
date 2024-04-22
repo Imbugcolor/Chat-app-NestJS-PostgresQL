@@ -7,6 +7,8 @@ import { RegisterDto } from '../dto/register.dto';
 import { Role } from '../roles/entities/role.entity';
 import { UserRole } from '../roles/entities/userRoles.entity';
 import { RedisService } from 'src/redis/redis.service';
+import { OtpService } from 'src/otp/otp.service';
+import { HttpResponse } from 'src/httpReponses/http.response';
 
 @Injectable()
 export class UsersService {
@@ -18,6 +20,7 @@ export class UsersService {
     @InjectRepository(Role)
     private userRoleRepository: Repository<UserRole>,
     private redisService: RedisService,
+    private otpService: OtpService,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -29,17 +32,36 @@ export class UsersService {
     return await bcryptjs.hash(password, salt);
   }
 
-  public async register(registerDto: RegisterDto): Promise<User> {
-    const { username, email, password } = registerDto;
+  public async register(registerDto: RegisterDto) {
+    const { username, email, password, phone } = registerDto;
     const usernameExist = await this.userRepository.findOneBy({ username });
-    const emailExist = await this.userRepository.findOneBy({ email });
+
+    let messageResponse: string = '';
 
     if (usernameExist) {
       throw new BadRequestException('Username already in use.');
     }
 
-    if (emailExist) {
-      throw new BadRequestException('Email has been registed.');
+    if (email) {
+      const emailExist = await this.userRepository.findOneBy({ email });
+      if (emailExist) {
+        throw new BadRequestException('Email has been registed.');
+      }
+      await this.otpService.sendOtpMail(email);
+      messageResponse =
+        'We have just sent you an OTP code to your email, please check to activate your account.';
+    }
+
+    if (phone) {
+      const phoneExist = await this.userRepository.findOneBy({ phone });
+      if (phoneExist) {
+        throw new BadRequestException('Phone number has been registed.');
+      }
+      if (!email) {
+        await this.otpService.sendOtpSMS(phone);
+        messageResponse =
+          'We have just sent you an OTP code to your email, please check to activate your account.';
+      }
     }
 
     const hashedPassword = await this.hashPassword(password);
@@ -47,14 +69,15 @@ export class UsersService {
     const userObj = {
       username,
       fullname: username,
-      email,
+      email: email ? email : null,
       password: hashedPassword,
+      phone: phone ? phone : null,
     };
     const user = new User(userObj);
 
     await this.userRepository.save(user);
 
-    return user;
+    return new HttpResponse(messageResponse).success();
   }
 
   public async getUsers(searchTerm: string) {

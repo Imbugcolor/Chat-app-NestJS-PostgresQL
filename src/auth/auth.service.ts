@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   UnauthorizedException,
@@ -12,6 +13,11 @@ import { AUTHSTRATEGY } from './users/enums/authStrategy.enum';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { LoginDto } from './dto/login.dto';
+import { VerifyPhoneDto } from './dto/verify-phone.dto';
+import { OtpService } from 'src/otp/otp.service';
+import { HttpResponse } from 'src/httpReponses/http.response';
+import { VerifyMailDto } from './dto/verify-mail.dto';
+import { ERROR_CODE } from './error_code/error.code';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +25,7 @@ export class AuthService {
     @InjectRepository(User) private userRepository: Repository<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private otpService: OtpService,
   ) {}
 
   private async hashData(data: string): Promise<string> {
@@ -72,15 +79,79 @@ export class AuthService {
     return refreshToken;
   }
 
-  async login(loginDto: LoginDto, res: Response): Promise<User> {
-    const { email, password } = loginDto;
+  public async activeAccountByPhone(verifyPhoneDto: VerifyPhoneDto) {
+    const { phone, code } = verifyPhoneDto;
+    const user = await this.userRepository.findOneBy({ phone });
+
+    if (!user) {
+      throw new BadRequestException({
+        error_code: ERROR_CODE.ERR_100,
+        message: 'Phone number have not registed yet.',
+      });
+    }
+
+    const verifyCode = await this.otpService.verifyOtpSMS(phone, code);
+
+    if (verifyCode.valid !== true) {
+      throw new UnauthorizedException({
+        error_code: ERROR_CODE.ERR_104,
+        message: 'Account activated failed.',
+      });
+    }
+
+    const activeUser = new User({ ...user, isActive: true });
+    await this.userRepository.save(activeUser);
+
+    return new HttpResponse('Account activated successfully.').success();
+  }
+
+  public async activeAccountByMail(verifyMailDto: VerifyMailDto) {
+    const { email, otp } = verifyMailDto;
 
     const user = await this.userRepository.findOneBy({ email });
 
+    if (!user) {
+      throw new BadRequestException({
+        error_code: ERROR_CODE.ERR_100,
+        message: 'Email have not registed yet.',
+      });
+    }
+
+    if (await this.otpService.verifyOtpMail(email, otp)) {
+      const activeUser = new User({ ...user, isActive: true });
+      await this.userRepository.save(activeUser);
+      return new HttpResponse('Account activated successfully.').success();
+    } else {
+      throw new UnauthorizedException({
+        error_code: ERROR_CODE.ERR_104,
+        message: 'Account activated failed.',
+      });
+    }
+  }
+
+  async login(loginDto: LoginDto, res: Response): Promise<User> {
+    const { email, password, phone } = loginDto;
+    let user: User;
+    if (email) {
+      user = await this.userRepository.findOne({ where: { email } });
+    }
+
+    if (phone) {
+      user = await this.userRepository.findOne({ where: { phone } });
+    }
+
     if (user && user.authStrategy !== AUTHSTRATEGY.LOCAL) {
-      throw new UnauthorizedException(
-        'This account has registed with other method.',
-      );
+      throw new UnauthorizedException({
+        error_code: ERROR_CODE.ERR_101,
+        message: 'This account has registed with other method.',
+      });
+    }
+
+    if (user && !user.isActive) {
+      throw new UnauthorizedException({
+        error_code: ERROR_CODE.ERR_102,
+        message: 'This account have not activated.',
+      });
     }
 
     if (user && (await bcryptjs.compare(password, user.password))) {
@@ -97,7 +168,10 @@ export class AuthService {
 
       return new User({ ...user, accessToken });
     } else {
-      throw new UnauthorizedException('Please check your login credentials.');
+      throw new UnauthorizedException({
+        error_code: ERROR_CODE.ERR_103,
+        message: 'Please check your login credentials.',
+      });
     }
   }
 

@@ -22,9 +22,13 @@ export class User {
   @Expose()
   username: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   @Expose()
   email: string;
+
+  @Column({ unique: true, nullable: true })
+  @Expose()
+  phone: string;
 
   @Column({ length: 500 })
   @Expose()
@@ -83,4 +87,8 @@ export class User {
 
   @Expose()
   accessToken?: string;
+
+  @Column({ default: false })
+  @Expose()
+  isActive: boolean;
 }
