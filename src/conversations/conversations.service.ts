@@ -10,6 +10,8 @@ import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { MESSAGETYPE } from 'src/messages/enums/messageType.enum';
 import { Message } from 'src/messages/entities/message.entity';
 import { Attachment } from 'src/messages/entities/attachment.entity';
+import { plainToClass } from 'class-transformer';
+import { ConversationQuery } from './queries/conversaton.query';
 
 @Injectable()
 export class ConversationsService {
@@ -58,14 +60,10 @@ export class ConversationsService {
 
     await this.conversationRepository.save(newConversation);
 
-    const ids: number[] = [];
-    newConversation.participants.map((participant) => {
-      if (participant.user.id !== user.id) {
-        return ids.push(participant.user.id);
-      }
-    });
-
-    this.eventsGateway.newConversation(newConversation, userIds);
+    this.eventsGateway.newConversation(
+      plainToClass(Conversation, newConversation),
+      userIds,
+    );
 
     return newConversation;
   }
@@ -77,30 +75,102 @@ export class ConversationsService {
         .leftJoinAndSelect('conversation.createdBy', 'createdBy')
         .leftJoinAndSelect('conversation.participants', 'participants')
         .leftJoinAndSelect('participants.user', 'user')
+        .leftJoinAndSelect('conversation.messages', 'messages')
+        .leftJoinAndSelect('messages.senderId', 'senderId')
+        .leftJoinAndSelect('messages.usersRead', 'usersRead')
+        .leftJoinAndSelect('usersRead.readBy', 'readBy')
         .where('conversation.id = :conversationId', { conversationId })
         .andWhere('user.id = :userId', { userId: user.id })
         .getOne();
       if (conversation === null) {
         throw new BadRequestException('Conversation not exists.');
       }
-      return conversation;
+
+      const lastMessage = conversation.messages[0]; // Assuming messages are sorted in descending order of createdAt
+
+      let numUnReads = 0;
+      for (const message of conversation.messages) {
+        if (
+          message.senderId.id === user.id ||
+          message.usersRead.some((usr) => usr.readBy.id === user.id)
+        ) {
+          break; // Exit the loop when encountering a read message
+        }
+        numUnReads++;
+      }
+
+      if (lastMessage && lastMessage.senderId.id === user.id) {
+        return new Conversation({
+          ...conversation,
+          messages: [],
+          lastMessage: conversation.messages[0],
+          isRead: true,
+          numUnReads,
+        });
+      } else {
+        if (
+          lastMessage &&
+          lastMessage.usersRead &&
+          lastMessage.usersRead.some(
+            (userRead) => userRead.readBy.id === user.id,
+          )
+        ) {
+          return new Conversation({
+            ...conversation,
+            messages: [],
+            lastMessage: conversation.messages[0],
+            isRead: true,
+            numUnReads,
+          });
+        }
+        return new Conversation({
+          ...conversation,
+          messages: [],
+          lastMessage: conversation.messages[0],
+          isRead: false,
+          numUnReads,
+        });
+      }
     } catch (error) {
       throw new BadRequestException(error);
     }
   }
 
-  async getConversations(user: User) {
-    const conversations = await this.conversationRepository
+  private async getConversationBaseQuery() {
+    return this.conversationRepository
       .createQueryBuilder('conversation')
-      .leftJoinAndSelect('conversation.messages', 'message')
-      .leftJoinAndSelect('message.senderId', 'sender')
-      .leftJoinAndSelect('message.usersRead', 'usersRead')
-      .leftJoinAndSelect('usersRead.readBy', 'readBy')
+      .leftJoinAndSelect('conversation.createdBy', 'createdBy')
       .leftJoinAndSelect('conversation.participants', 'participants')
       .leftJoinAndSelect('participants.user', 'user')
-      .where('user.id = :userId', { userId: user.id })
-      .orderBy('message.createdAt', 'DESC')
-      .getMany();
+      .leftJoinAndSelect('conversation.messages', 'messages')
+      .leftJoinAndSelect('messages.senderId', 'senderId')
+      .leftJoinAndSelect('messages.usersRead', 'usersRead')
+      .leftJoinAndSelect('usersRead.readBy', 'readBy')
+      .leftJoinAndMapMany(
+        'conversation.allParticipants',
+        'conversation.participants',
+        'allParticipants',
+      )
+      .leftJoinAndSelect('allParticipants.user', 'allUsers')
+      .orderBy('messages.createdAt', 'DESC');
+  }
+
+  async getConversations(user: User, conversationQuery?: ConversationQuery) {
+    let conversations: Conversation[];
+    const query = await this.getConversationBaseQuery();
+
+    if (conversationQuery && conversationQuery.name) {
+      conversations = await query
+        .where('allUsers.id = :userId', { userId: user.id })
+        .andWhere('LOWER(conversation.name) like LOWER(:name)', {
+          name: `%${conversationQuery.name}%`,
+        })
+        .getMany();
+    } else {
+      conversations = await query
+        .where('allUsers.id = :userId', { userId: user.id })
+        .getMany();
+    }
 
     const conversationsRead: number[] = [];
 
@@ -123,23 +193,9 @@ export class ConversationsService {
       }
     });
 
-    const ids = conversations.map((cv) => cv.id);
+    // const ids = conversations.map((cv) => cv.id);
 
-    // retrive conversations with all participants in each conversation
-    const _conversation = await this.conversationRepository
-      .createQueryBuilder('conversation')
-      .leftJoinAndSelect('conversation.createdBy', 'createdBy')
-      .leftJoinAndSelect('conversation.participants', 'participants')
-      .leftJoinAndSelect('participants.user', 'user')
-      .leftJoinAndSelect('conversation.messages', 'messages')
-      .leftJoinAndSelect('messages.senderId', 'senderId')
-      .leftJoinAndSelect('messages.usersRead', 'usersRead')
-      .leftJoinAndSelect('usersRead.readBy', 'readBy')
-      .where('conversation.id IN (:...ids)', { ids: ids })
-      .orderBy('messages.createdAt', 'DESC')
-      .getMany();
-
-    const __conversations = _conversation.map((conversation) => {
+    const __conversations = conversations.map((conversation) => {
       let numUnReads = 0;
       for (const message of conversation.messages) {
         if (
@@ -172,7 +228,7 @@ export class ConversationsService {
     return __conversations;
   }
 
-  private async getUsersParticipantByConversation(conversationId: number) {
+  private async getUserIdsParticipantByConversation(conversationId: number) {
     const cv = await this.conversationRepository
       .createQueryBuilder('conversation')
       .leftJoinAndSelect('conversation.participants', 'participants')
@@ -189,6 +245,23 @@ export class ConversationsService {
     return participantIds;
   }
 
+  private async getUsersParticipantByConversation(conversationId: number) {
+    const cv = await this.conversationRepository
+      .createQueryBuilder('conversation')
+      .leftJoinAndSelect('conversation.participants', 'participants')
+      .leftJoinAndSelect('participants.user', 'user')
+      .where('conversation.id = :conversationId', { conversationId })
+      .getOne();
+
+    const participants: Participant[] = [];
+
+    cv?.participants.map((participant) =>
+      participants.push(new Participant(participant)),
+    );
+
+    return participants;
+  }
+
   async inviteJoinConversation(
     user: User,
     conversationId: number,
@@ -196,12 +269,12 @@ export class ConversationsService {
   ) {
     const conversation = await this.getConversation(user, conversationId);
 
-    // get users will realtime event
-    const userIds: number[] =
+    // create new participants
+    const participants: Participant[] =
       await this.getUsersParticipantByConversation(conversationId);
 
-    // create new participants
-    const participants: Participant[] = [];
+    const userIds: number[] = participants.map((part) => part.user.id);
+    const usersJoin: number[] = [];
     await Promise.all(
       inviteUserIds.map(async (id) => {
         const user = await this.userRepository.findOneBy({ id });
@@ -224,16 +297,31 @@ export class ConversationsService {
 
         const inviteUser = new Participant({ user, conversation });
 
-        const participant = await this.participantRepository.save(inviteUser);
+        await this.participantRepository.save(inviteUser);
 
-        participants.push(participant);
+        participants.push(inviteUser);
+
+        usersJoin.push(id);
       }),
     );
 
-    // send new participants to eventsGateway
-    this.eventsGateway.newUsersJoinConversation(participants, userIds);
+    const newConversation = new Conversation({ ...conversation, participants });
 
-    return participants;
+    const userIdsOnEvent = [
+      ...userIds.filter((id) => id !== user.id),
+      ...inviteUserIds,
+    ];
+
+    // send new participants to eventsGateway
+    this.eventsGateway.newUsersJoinConversation(
+      {
+        conversation: plainToClass(Conversation, newConversation),
+        userIds: usersJoin,
+      },
+      userIdsOnEvent,
+    );
+
+    return newConversation;
   }
 
   async leaveConversation(user: User, conversationId: number) {
@@ -247,17 +335,67 @@ export class ConversationsService {
         .execute();
 
       const participantIds: number[] =
-        await this.getUsersParticipantByConversation(conversationId);
+        await this.getUserIdsParticipantByConversation(conversationId);
 
       this.eventsGateway.leaveConversation(
-        { user, conversation: conversationId },
+        { user: plainToClass(User, user), conversation: conversationId },
         participantIds,
       );
+
+      return new HttpResponse().success();
     } catch (error) {
       throw new BadRequestException(error.message);
     }
+  }
 
-    return new HttpResponse().success();
+  async removeUserFromConversation(
+    user: User,
+    conversationId: number,
+    userId: number,
+  ) {
+    try {
+      const isOwnConversation = await this.conversationRepository
+        .createQueryBuilder('conversation')
+        .leftJoin('conversation.createdBy', 'createdBy')
+        .where('conversation.id = :conversationId', { conversationId })
+        .andWhere('createdBy.id = :userId', { userId: user.id })
+        .getOne();
+
+      if (!isOwnConversation) {
+        return new HttpResponse('Conversation not exist.').notFound();
+      }
+
+      const removed_user = await this.participantRepository
+        .createQueryBuilder('participant')
+        .leftJoin('participant.conversation', 'conversation')
+        .delete()
+        .from(Participant)
+        .where('conversation.id = :conversationId', { conversationId })
+        .andWhere('userId = :userRemoveId', { userRemoveId: userId })
+        .execute();
+
+      const participantIds: number[] =
+        await this.getUserIdsParticipantByConversation(conversationId);
+
+      participantIds.push(userId);
+
+      const clientIds: number[] = participantIds.filter((id) => id !== user.id);
+
+      if (removed_user.affected && removed_user.affected > 0) {
+        this.eventsGateway.userRemovedFromConversation(
+          {
+            user: plainToClass(User, new User({ id: userId })),
+            conversation: conversationId,
+          },
+          clientIds,
+        );
+        return new HttpResponse().success();
+      }
+
+      return new HttpResponse('User not exist in conversation.').notFound();
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
   async updateNameConversation(

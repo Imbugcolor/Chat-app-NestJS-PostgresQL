@@ -18,6 +18,7 @@ import { OtpService } from 'src/otp/otp.service';
 import { HttpResponse } from 'src/httpReponses/http.response';
 import { VerifyMailDto } from './dto/verify-mail.dto';
 import { ERROR_CODE } from './error_code/error.code';
+import { ReSendOtpDto } from './dto/resend-otp.dto';
 
 @Injectable()
 export class AuthService {
@@ -122,6 +123,23 @@ export class AuthService {
       await this.userRepository.save(activeUser);
       return new HttpResponse('Account activated successfully.').success();
     } else {
+      throw new UnauthorizedException({
+        error_code: ERROR_CODE.ERR_104,
+        message: 'Account activated failed.',
+      });
+    }
+  }
+
+  async reSendOtp(reSendOtpDto: ReSendOtpDto) {
+    const { phone, email } = reSendOtpDto;
+    try {
+      if (email) {
+        await this.otpService.sendOtpMail(email);
+      } else {
+        await this.otpService.sendOtpSMS(phone);
+      }
+      return new HttpResponse('Send OK.').success();
+    } catch (error) {
       throw new UnauthorizedException({
         error_code: ERROR_CODE.ERR_104,
         message: 'Account activated failed.',

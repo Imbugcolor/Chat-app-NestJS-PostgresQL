@@ -36,8 +36,11 @@ export class MessagesService {
       .createQueryBuilder('message')
       .leftJoinAndSelect('message.attachments', 'attachments')
       .leftJoin('message.conversation', 'conversation')
+      .leftJoin('conversation.participants', 'participants')
+      .leftJoin('participants.user', 'user')
       .leftJoinAndSelect('message.senderId', 'senderId')
       .where('conversation.id = :conversationId', { conversationId })
+      .andWhere('user.id = :userId', { userId: user.id })
       .orderBy('message.createdAt', 'DESC');
   }
 
@@ -107,7 +110,7 @@ export class MessagesService {
       }
     });
 
-    this.eventsGateway.sendMessage(message, userIds);
+    this.eventsGateway.sendMessage(plainToClass(Message, message), userIds);
 
     return message;
   }
@@ -137,7 +140,7 @@ export class MessagesService {
       }
     });
 
-    this.eventsGateway.updateMessage(message, userIds);
+    this.eventsGateway.updateMessage(plainToClass(Message, message), userIds);
 
     return message;
   }
@@ -181,7 +184,7 @@ export class MessagesService {
       }
     });
 
-    this.eventsGateway.deleteMessage(message, userIds);
+    this.eventsGateway.deleteMessage(plainToClass(Message, message), userIds);
 
     return new HttpResponse().success();
   }

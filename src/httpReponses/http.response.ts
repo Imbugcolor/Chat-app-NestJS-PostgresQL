@@ -9,4 +9,11 @@ export class HttpResponse {
       statusCode: HttpStatus.OK,
     };
   }
+
+  notFound() {
+    return {
+      message: this.detailString,
+      statusCode: HttpStatus.NOT_FOUND,
+    };
+  }
 }

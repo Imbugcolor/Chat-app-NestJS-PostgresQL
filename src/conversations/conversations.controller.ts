@@ -8,10 +8,13 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   SerializeOptions,
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { GetUser } from 'src/auth/decorators/getUser.decorator';
 import { AccessTokenGuard } from 'src/auth/guards/accessToken.guard';
@@ -19,6 +22,7 @@ import { User } from 'src/auth/users/entities/user.entity';
 import { ConversationsService } from './conversations.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Attachment } from 'src/messages/entities/attachment.entity';
+import { ConversationQuery } from './queries/conversaton.query';
 
 @Controller('conversations')
 @SerializeOptions({ strategy: 'excludeAll' })
@@ -37,9 +41,10 @@ export class ConversationsController {
 
   @Get()
   @UseGuards(AccessTokenGuard)
+  @UsePipes(new ValidationPipe({ transform: true }))
   @UseInterceptors(ClassSerializerInterceptor)
-  getConversations(@GetUser() user: User) {
-    return this.conversationsService.getConversations(user);
+  getConversations(@GetUser() user: User, @Query() filter: ConversationQuery) {
+    return this.conversationsService.getConversations(user, filter);
   }
 
   @Post('invite/:id')
@@ -64,6 +69,20 @@ export class ConversationsController {
     @Param('id') conversationId: number,
   ) {
     return this.conversationsService.leaveConversation(user, conversationId);
+  }
+
+  @Delete(':conversationId/user/:userId')
+  @UseGuards(AccessTokenGuard)
+  removeUserFromConversation(
+    @GetUser() user: User,
+    @Param('conversationId') conversationId: number,
+    @Param('userId') userId: number,
+  ) {
+    return this.conversationsService.removeUserFromConversation(
+      user,
+      conversationId,
+      userId,
+    );
   }
 
   @Patch('name/:id')

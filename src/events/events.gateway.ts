@@ -25,8 +25,11 @@ import {
   UPDATE_MESSAGE,
   USER_LEAVE_CONVERSATION,
   USER_CREATE_CONVERSATION,
+  USER_REMOVED_CONVERSATION,
 } from './constants/messageEvent.contanst';
 import { UserLeavePayload } from './types/userLeavePayload.type';
+import { UserRemovedPayload } from './types/userRemovedPayload.type';
+import { NewUsersJoinPayload } from './types/newUsersJoinPayload.type';
 
 @WebSocketGateway({ cors: true })
 @UseFilters(WebsocketExceptionsFilter)
@@ -118,39 +121,11 @@ export class EventsGateway
     eventName: any,
   ) {
     if (usersId.length > 0) {
-      const serializeSenderData = this.serializeUserData(message.senderId);
-      // const serializeUsersReadData: UserReadMessage[] =
-      //   message.usersRead?.map((userRead) => {
-      //     return {
-      //       ...userRead,
-      //       user: this.serializeUserData(userRead.readBy),
-      //     };
-      //   }) || [];
-
-      const serializeUserParticipantsData: Participant[] =
-        message.conversation.participants.map((participant) => {
-          return {
-            ...participant,
-            user: this.serializeUserData(participant.user),
-          };
-        });
-
-      const conversation: Conversation = {
-        ...message.conversation,
-        participants: serializeUserParticipantsData,
-      };
-
-      const serialData: Message = {
-        ...message,
-        senderId: serializeSenderData,
-        conversation,
-      };
-
       await Promise.all(
         usersId.map(async (id) => {
           const clients = await this.redisService.getClient(id);
           clients.forEach((client) => {
-            this.server.to(`${client}`).emit(eventName, serialData);
+            this.server.to(`${client}`).emit(eventName, message);
           });
         }),
       );
@@ -175,85 +150,56 @@ export class EventsGateway
   }
 
   async newConversation(conversation: Conversation, userIds: number[]) {
-    const serializeUserCreatedData: Conversation = {
-      ...conversation,
-      createdBy: this.serializeUserData(conversation.createdBy),
-    };
-
-    const serializeUserParticipantsData: Participant[] =
-      conversation.participants.map((participant) => {
-        return {
-          ...participant,
-          user: this.serializeUserData(participant.user),
-        };
-      });
-
-    const serializeConversationData = {
-      ...serializeUserCreatedData,
-      participants: serializeUserParticipantsData,
-    };
-
     await Promise.all(
       userIds.map(async (id) => {
         const clients = await this.redisService.getClient(id);
         clients.forEach((client) => {
           this.server
             .to(`${client}`)
-            .emit(USER_CREATE_CONVERSATION, serializeConversationData);
+            .emit(USER_CREATE_CONVERSATION, conversation);
         });
       }),
     );
   }
 
   async newUsersJoinConversation(
-    participants: Participant[],
+    payload: NewUsersJoinPayload,
     userIds: number[],
   ) {
-    const serializeUserParticipantsData: Participant[] = participants.map(
-      (participant) => {
-        return {
-          ...participant,
-          user: this.serializeUserData(participant.user),
-        };
-      },
-    );
-
     await Promise.all(
       userIds.map(async (id) => {
         const clients = await this.redisService.getClient(id);
         clients.forEach((client) => {
           this.server
             .to(`${client}`)
-            .emit(NEW_USERS_JOIN_CONVERSATION, serializeUserParticipantsData);
+            .emit(NEW_USERS_JOIN_CONVERSATION, payload);
         });
       }),
     );
   }
 
-  async leaveConversation(payload: UserLeavePayload, participantIds: number[]) {
-    const serializeData = {
-      ...payload,
-      user: this.serializeUserData(payload.user),
-    };
-
+  async leaveConversation(payload: UserLeavePayload, clientIds: number[]) {
     await Promise.all(
-      participantIds.map(async (id) => {
+      clientIds.map(async (id) => {
         const clients = await this.redisService.getClient(id);
         clients.forEach((client) => {
-          this.server
-            .to(`${client}`)
-            .emit(USER_LEAVE_CONVERSATION, serializeData);
+          this.server.to(`${client}`).emit(USER_LEAVE_CONVERSATION, payload);
         });
       }),
     );
   }
 
-  private serializeUserData(data: User): User {
-    delete data.password;
-    delete data.rf_token;
-    delete data.conversations;
-    delete data.participants;
-    delete data.messages;
-    return data;
+  async userRemovedFromConversation(
+    payload: UserRemovedPayload,
+    clientIds: number[],
+  ) {
+    await Promise.all(
+      clientIds.map(async (id) => {
+        const clients = await this.redisService.getClient(id);
+        clients.forEach((client) => {
+          this.server.to(`${client}`).emit(USER_REMOVED_CONVERSATION, payload);
+        });
+      }),
+    );
   }
 }

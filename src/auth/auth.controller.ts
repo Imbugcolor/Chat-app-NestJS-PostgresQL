@@ -19,6 +19,7 @@ import { GetUser } from './decorators/getUser.decorator';
 import { User } from './users/entities/user.entity';
 import { VerifyPhoneDto } from './dto/verify-phone.dto';
 import { VerifyMailDto } from './dto/verify-mail.dto';
+import { ReSendOtpDto } from './dto/resend-otp.dto';
 
 @Controller('auth')
 @SerializeOptions({ strategy: 'excludeAll' })
@@ -42,6 +43,11 @@ export class AuthController {
   @Post('active/mail')
   async acctiveAccountByMail(@Body() verifyMailDto: VerifyMailDto) {
     return this.authService.activeAccountByMail(verifyMailDto);
+  }
+
+  @Post('resend')
+  async reSendOtp(@Body() reSendOtpDto: ReSendOtpDto) {
+    return this.authService.reSendOtp(reSendOtpDto);
   }
 
   @Get('refreshtoken')

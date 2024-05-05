@@ -60,7 +60,7 @@ export class UsersService {
       if (!email) {
         await this.otpService.sendOtpSMS(phone);
         messageResponse =
-          'We have just sent you an OTP code to your email, please check to activate your account.';
+          'We have just sent you an OTP code to your phone, please check to activate your account.';
       }
     }
 
