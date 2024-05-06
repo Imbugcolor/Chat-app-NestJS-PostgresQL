@@ -179,6 +179,7 @@ export class AuthService {
       res.cookie('refresh_token', refreshToken, {
         httpOnly: true,
         path: `/auth/refreshtoken`,
+        sameSite: 'none',
         maxAge: 7 * 24 * 60 * 60 * 1000, //7days
       });
 
