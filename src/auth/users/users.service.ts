@@ -9,6 +9,8 @@ import { UserRole } from '../roles/entities/userRoles.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { OtpService } from 'src/otp/otp.service';
 import { HttpResponse } from 'src/httpReponses/http.response';
+import { UpdateProfileDto } from '../dto/update-profile.dto';
+import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 
 @Injectable()
 export class UsersService {
@@ -21,6 +23,7 @@ export class UsersService {
     private userRoleRepository: Repository<UserRole>,
     private redisService: RedisService,
     private otpService: OtpService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async findAll(): Promise<User[]> {
@@ -78,6 +81,37 @@ export class UsersService {
     await this.userRepository.save(user);
 
     return new HttpResponse(messageResponse).success();
+  }
+
+  public async updateProfile(user: User, updateProfileDto: UpdateProfileDto) {
+    await this.userRepository
+      .createQueryBuilder()
+      .update(User)
+      .set(updateProfileDto)
+      .where('id = :id', { id: user.id })
+      .execute();
+
+    return new HttpResponse().success();
+  }
+
+  public async updateUserPhoto(user: User, file: Express.Multer.File) {
+    const photo_upload = await this.cloudinaryService.uploadFile(file);
+
+    const { secure_url } = photo_upload;
+
+    await this.userRepository
+      .createQueryBuilder()
+      .update(User)
+      .set({ avatar: secure_url })
+      .where('id = :id', { id: user.id })
+      .execute();
+
+    return secure_url;
+  }
+
+  public async getUser(id: number) {
+    const user = await this.userRepository.findOneBy({ id });
+    return new User(user);
   }
 
   public async getUsers(searchTerm: string) {

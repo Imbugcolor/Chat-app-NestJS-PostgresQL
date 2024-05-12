@@ -4,9 +4,13 @@ import {
   ClassSerializerInterceptor,
   Controller,
   Get,
+  Param,
+  ParseIntPipe,
+  Patch,
   Post,
   Query,
   SerializeOptions,
+  UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -18,6 +22,8 @@ import { User } from './entities/user.entity';
 import { Roles } from '../decorators/roles.decorator';
 import { ROLES } from '../roles/enums/roles.enum';
 import { RolesGuard } from '../guards/roles.guard';
+import { UpdateProfileDto } from '../dto/update-profile.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('users')
 @SerializeOptions({ strategy: 'excludeAll' })
@@ -38,6 +44,13 @@ export class UsersController {
     return user;
   }
 
+  @Get('profile/:id')
+  @UseGuards(AccessTokenGuard)
+  @UseInterceptors(ClassSerializerInterceptor)
+  async getUserProfile(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.getUser(id);
+  }
+
   @Get('search')
   @UseGuards(AccessTokenGuard)
   @UseInterceptors(ClassSerializerInterceptor)
@@ -56,5 +69,24 @@ export class UsersController {
   @UseGuards(AccessTokenGuard)
   async getUsersOnline() {
     return this.usersService.getUsersOnline();
+  }
+
+  @Patch('update')
+  @UseGuards(AccessTokenGuard)
+  async updateUserProfile(
+    @GetUser() user: User,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.usersService.updateProfile(user, updateProfileDto);
+  }
+
+  @Patch('photo')
+  @UseGuards(AccessTokenGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async updateUserPhoto(
+    @GetUser() user: User,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.usersService.updateUserPhoto(user, file);
   }
 }
