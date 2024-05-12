@@ -1,4 +1,10 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  OneToMany,
+  CreateDateColumn,
+} from 'typeorm';
 import { GENDER } from '../enums/gender.enum';
 import { AUTHSTRATEGY } from '../enums/authStrategy.enum';
 import { UserRole } from 'src/auth/roles/entities/userRoles.entity';
@@ -56,6 +62,14 @@ export class User {
   gender: GENDER;
 
   @Column({ nullable: true })
+  @Expose()
+  bio: string;
+
+  @CreateDateColumn()
+  @Expose()
+  dateOfBirth: Date;
+
+  @Column({ nullable: true })
   rf_token: string;
 
   @Column({ enum: AUTHSTRATEGY, default: AUTHSTRATEGY.LOCAL })
@@ -91,4 +105,8 @@ export class User {
   @Column({ default: false })
   @Expose()
   isActive: boolean;
+
+  @CreateDateColumn()
+  @Expose()
+  createdAt: Date;
 }
