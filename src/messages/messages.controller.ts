@@ -50,21 +50,22 @@ export class MessagesController {
   async createMessage(
     @GetUser() user: User,
     @Param('conversationId', ParseIntPipe) id: number,
-    @Body('context') context: string,
+    @Body('text') text: string,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.messagesService.createMessage(user, id, context, files);
+    return this.messagesService.createMessage(user, id, text, files);
   }
 
   @Patch('/:messageId')
   @UseGuards(AccessTokenGuard)
   @UseInterceptors(ClassSerializerInterceptor)
+  @UseInterceptors(FilesInterceptor('files', 5))
   async updateMessage(
     @GetUser() user: User,
     @Param('messageId', ParseIntPipe) id: number,
-    @Body('context') context: string,
+    @Body('text') text: string,
   ) {
-    return this.messagesService.updateMessage(user, id, context);
+    return this.messagesService.updateMessage(user, id, text);
   }
 
   @Delete('/:messageId')

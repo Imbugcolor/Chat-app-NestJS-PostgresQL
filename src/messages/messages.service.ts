@@ -58,7 +58,7 @@ export class MessagesService {
   async createMessage(
     user: User,
     conversationId: number,
-    context: string,
+    text: string,
     files?: Express.Multer.File[],
   ): Promise<Message> {
     const conversation = await this.conversationRepository
@@ -87,7 +87,7 @@ export class MessagesService {
 
       message = new Message({
         senderId: user,
-        text: JSON.parse(context),
+        text: JSON.parse(text),
         conversation,
         attachments,
         message_type: MESSAGETYPE.PHOTOS,
@@ -95,7 +95,7 @@ export class MessagesService {
     } else {
       message = new Message({
         senderId: user,
-        text: context,
+        text,
         conversation,
         attachments: [],
       });
@@ -118,7 +118,7 @@ export class MessagesService {
   async updateMessage(
     user: User,
     messageId: number,
-    context: string,
+    updateMessage: string,
   ): Promise<Message> {
     const message = await this.messageRepository
       .createQueryBuilder('message')
@@ -129,9 +129,10 @@ export class MessagesService {
       .where('message.id = :id', { id: messageId })
       .getOne();
 
-    message.text = context;
+    message.text = updateMessage;
+    message.isUpdated = true;
 
-    await this.messageRepository.save(message);
+    const updatedMessage = await this.messageRepository.save(message);
 
     const userIds: number[] = [];
     message.conversation.participants.map((participant) => {
@@ -140,9 +141,12 @@ export class MessagesService {
       }
     });
 
-    this.eventsGateway.updateMessage(plainToClass(Message, message), userIds);
+    this.eventsGateway.updateMessage(
+      plainToClass(Message, updatedMessage),
+      userIds,
+    );
 
-    return message;
+    return new Message(updatedMessage);
   }
 
   async deleteMessage(user: User, messageId: number) {
