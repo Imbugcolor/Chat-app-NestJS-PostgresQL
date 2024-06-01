@@ -10,14 +10,17 @@ import * as redisStore from 'cache-manager-redis-store';
     CacheModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        store: redisStore,
-        host: configService.get('REDIS_HOST'),
-        port: configService.get('REDIS_PORT'),
-        username: configService.get('REDIS_USERNAME'),
-        password: configService.get('REDIS_PASSWORD'),
-        ttl: 0,
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const isProduction = configService.get('STAGE') === 'prod';
+        return {
+          store: redisStore,
+          host: configService.get('REDIS_HOST'),
+          port: configService.get('REDIS_PORT'),
+          username: isProduction ? configService.get('REDIS_USERNAME') : '',
+          password: isProduction ? configService.get('REDIS_PASSWORD') : '',
+          ttl: 0,
+        };
+      },
     }),
   ],
   providers: [RedisService],

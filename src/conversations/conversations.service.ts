@@ -362,7 +362,7 @@ export class ConversationsService {
         .getOne();
 
       if (!isOwnConversation) {
-        return new HttpResponse('Conversation not exist.').notFound();
+        throw new HttpResponse('Conversation not exist.').notFound();
       }
 
       const removed_user = await this.participantRepository
@@ -392,7 +392,7 @@ export class ConversationsService {
         return new HttpResponse().success();
       }
 
-      return new HttpResponse('User not exist in conversation.').notFound();
+      throw new HttpResponse('User not exist in conversation.').notFound();
     } catch (error) {
       throw new BadRequestException(error.message);
     }
